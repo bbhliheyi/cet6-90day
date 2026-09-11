@@ -1098,10 +1098,12 @@ async function startRecording(item, options = {}) {
     alert("当前浏览器不支持网页录音，请改用系统录音工具并手动自评。" );
     return;
   }
+  let stream = null;
   try {
-    recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    recordingStream = stream;
     const chunks = [];
-    const recorder = new MediaRecorder(recordingStream);
+    const recorder = new MediaRecorder(stream);
     mediaRecorder = recorder;
     recordingContext = context;
     recorder.addEventListener("dataavailable", (event) => {
@@ -1124,8 +1126,8 @@ async function startRecording(item, options = {}) {
         if (status) status.textContent = "录音保存失败，请检查浏览器存储空间";
         console.error(error);
       } finally {
-        recordingStream?.getTracks().forEach((track) => track.stop());
-        recordingStream = null;
+        stream.getTracks().forEach((track) => track.stop());
+        if (recordingStream === stream) recordingStream = null;
         $("#" + context.dotId)?.classList.remove("is-live");
         recordingContext = null;
         if (mediaRecorder === recorder) mediaRecorder = null;
@@ -1144,8 +1146,8 @@ async function startRecording(item, options = {}) {
       if (duration) duration.textContent = `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
     }, 500);
   } catch {
-    recordingStream?.getTracks().forEach((track) => track.stop());
-    recordingStream = null;
+    stream?.getTracks().forEach((track) => track.stop());
+    if (recordingStream === stream) recordingStream = null;
     recordingContext = null;
     alert("无法使用麦克风。请检查浏览器权限，或使用系统录音工具完成训练。" );
   }
