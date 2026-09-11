@@ -1,0 +1,15 @@
+{
+  "name": "cet6-90day",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "原创大学英语六级90天训练网站",
+  "scripts": {
+    "check": "node scripts/check.mjs",
+    "build": "node scripts/build.mjs",
+    "serve": "python3 -m http.server 4173"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

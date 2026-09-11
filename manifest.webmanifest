@@ -1,0 +1,22 @@
+{
+  "id": "./",
+  "name": "大学英语六级 · 90天通关训练营",
+  "short_name": "六级90天",
+  "description": "大学英语六级90天系统训练、吉林考试通知与本地学习记录。",
+  "lang": "zh-CN",
+  "start_url": "./#dashboard",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f5f2e9",
+  "theme_color": "#173f39",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

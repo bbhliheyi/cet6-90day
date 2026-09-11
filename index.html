@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="面向全国考生的大学英语六级90天系统训练网站，包含计划、词汇、听力、阅读、写作、翻译、口语、模拟考试和官方通知。"
+    />
+    <meta name="theme-color" content="#173f39" />
+    <title>大学英语六级 · 90天通关训练营</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="主导航">
+        <a class="brand" href="#dashboard" data-route="dashboard">
+          <span class="brand-mark">C6</span>
+          <span>
+            <strong>六级训练营</strong>
+            <small>90 DAYS · 长春</small>
+          </span>
+        </a>
+
+        <nav class="nav-list">
+          <button class="nav-item is-active" data-route="dashboard"><span>⌂</span>学习首页</button>
+          <button class="nav-item" data-route="plan"><span>▦</span>90天计划</button>
+          <button class="nav-item" data-route="vocabulary"><span>Aa</span>单词训练</button>
+          <button class="nav-item" data-route="practice"><span>▶</span>专项训练</button>
+          <button class="nav-item" data-route="notices"><span>!</span>官方通知</button>
+          <button class="nav-item" data-route="notes"><span>✎</span>学习笔记</button>
+          <button class="nav-item" data-route="resources"><span>↗</span>资料中心</button>
+        </nav>
+
+        <div class="sidebar-summary">
+          <div class="summary-top">
+            <span>总进度</span>
+            <strong id="sidebar-progress-label">0%</strong>
+          </div>
+          <div class="progress-track"><span id="sidebar-progress-bar"></span></div>
+          <small id="sidebar-progress-detail">已完成 0 / 90 天</small>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <button class="mobile-menu" id="mobile-menu" aria-label="打开导航">☰</button>
+          <div>
+            <p class="eyebrow">吉林 · 长春 · 2026年下半年</p>
+            <h1 id="page-title">学习首页</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="ghost-button" id="install-button" hidden>安装到桌面</button>
+            <button class="avatar-button" id="data-button" title="数据管理">长春</button>
+          </div>
+        </header>
+
+        <section class="view is-active" id="view-dashboard" data-view="dashboard">
+          <div class="hero-grid">
+            <article class="hero-card">
+              <div class="hero-copy">
+                <span class="status-pill" id="cycle-status">准备期</span>
+                <p class="eyebrow light">2026年12月六级笔试</p>
+                <h2>把90天拆成每天<br />真正能完成的任务</h2>
+                <p id="today-guidance">先完成水平诊断与设备检查，正式训练从9月13日开始。</p>
+                <div class="hero-actions">
+                  <button class="primary-button light" data-jump="today">开始今日任务</button>
+                  <button class="text-button light-text" data-route="plan">查看完整计划 →</button>
+                </div>
+              </div>
+              <div class="countdown-card">
+                <small>距离笔试</small>
+                <strong id="exam-countdown">--</strong>
+                <span>天</span>
+                <div class="countdown-date">12月12日 15:00</div>
+              </div>
+            </article>
+
+            <article class="notice-preview">
+              <div class="card-heading">
+                <div>
+                  <p class="eyebrow">重要提醒</p>
+                  <h3>吉林省报名进行中</h3>
+                </div>
+                <span class="live-dot">进行中</span>
+              </div>
+              <dl class="notice-dates">
+                <div><dt>报名截止</dt><dd>9月28日 17:00</dd></div>
+                <div><dt>口试时间</dt><dd>11月22日</dd></div>
+                <div><dt>笔试时间</dt><dd>12月12日</dd></div>
+              </dl>
+              <button class="outline-button full" data-route="notices">查看报名与准考证通知</button>
+            </article>
+          </div>
+
+          <div class="section-heading dashboard-heading">
+            <div>
+              <p class="eyebrow">TODAY</p>
+              <h2>今日训练</h2>
+            </div>
+            <span class="date-chip" id="today-date">9月11日 星期五</span>
+          </div>
+          <div class="task-grid" id="today-tasks"></div>
+
+          <div class="dashboard-lower">
+            <article class="panel">
+              <div class="card-heading">
+                <div>
+                  <p class="eyebrow">学习数据</p>
+                  <h3>本周掌握情况</h3>
+                </div>
+                <span class="muted" id="weekly-duration">0 分钟</span>
+              </div>
+              <div class="skill-bars" id="skill-bars"></div>
+            </article>
+
+            <article class="panel download-panel">
+              <span class="download-icon">⌄</span>
+              <div>
+                <p class="eyebrow">DESKTOP APP</p>
+                <h3>电脑软件版</h3>
+                <p>网页版完成后，将在这里提供 Windows 安装版和便携版下载。</p>
+              </div>
+              <a class="outline-button" id="release-link" href="https://github.com/bbhliheyi/cet6-90day/releases" target="_blank" rel="noreferrer">查看下载页</a>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" id="view-plan" data-view="plan">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">SEPTEMBER 13 — DECEMBER 11</p>
+              <h2>90天训练路线</h2>
+              <p>每天约130分钟。可以补签，但不要用一天堆完多天任务。</p>
+            </div>
+            <div class="plan-stats">
+              <span><strong id="plan-completed">0</strong> 已完成</span>
+              <span><strong id="plan-streak">0</strong> 连续天数</span>
+            </div>
+          </div>
+          <div class="phase-tabs" id="phase-tabs"></div>
+          <div class="plan-list" id="plan-list"></div>
+        </section>
+
+        <section class="view" id="view-vocabulary" data-view="vocabulary">
+          <div class="section-intro compact">
+            <div>
+              <p class="eyebrow">VOCABULARY LAB</p>
+              <h2>单词训练</h2>
+              <p>认读、发音、拼写、语境和搭配五步训练，复习节奏由本站独立规则安排。</p>
+            </div>
+            <button class="outline-button" id="start-vocab-test">开始10词考核</button>
+          </div>
+
+          <div class="vocab-layout">
+            <article class="word-card" id="word-card">
+              <div class="word-card-top">
+                <span id="word-progress">1 / 24</span>
+                <button class="icon-button" id="speak-word" aria-label="朗读单词">🔊</button>
+              </div>
+              <div class="word-main">
+                <p class="word-label">今日待学</p>
+                <h3 id="word-text">substantial</h3>
+                <p class="word-pos" id="word-pos">adj.</p>
+                <button class="reveal-button" id="reveal-word">显示释义与例句</button>
+                <div class="word-answer" id="word-answer" hidden>
+                  <strong id="word-meaning">大量的；实质性的</strong>
+                  <p id="word-example">The report provides substantial evidence for the proposal.</p>
+                  <small id="word-collocation">搭配：substantial evidence</small>
+                </div>
+              </div>
+              <div class="word-actions">
+                <button class="memory-button forgot" data-memory="forgot">忘记</button>
+                <button class="memory-button unsure" data-memory="unsure">模糊</button>
+                <button class="memory-button known" data-memory="known">掌握</button>
+              </div>
+            </article>
+
+            <div class="vocab-side">
+              <article class="panel mini-stat-panel">
+                <p class="eyebrow">今日词汇</p>
+                <div class="big-stat"><strong id="vocab-today-count">0</strong><span>/ 30</span></div>
+                <div class="progress-track"><span id="vocab-today-bar"></span></div>
+              </article>
+              <article class="panel">
+                <p class="eyebrow">掌握分布</p>
+                <div class="donut-wrap">
+                  <div class="donut" id="vocab-donut"><strong id="vocab-master-rate">0%</strong></div>
+                  <ul class="legend">
+                    <li><i class="known-dot"></i>已掌握 <strong id="known-count">0</strong></li>
+                    <li><i class="unsure-dot"></i>待巩固 <strong id="unsure-count">0</strong></li>
+                    <li><i class="new-dot"></i>未学习 <strong id="new-count">24</strong></li>
+                  </ul>
+                </div>
+              </article>
+              <article class="panel compact-panel">
+                <p class="eyebrow">复习原则</p>
+                <p class="muted">答错当天重现；模糊次日复习；掌握后逐步延长间隔。</p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="view-practice" data-view="practice">
+          <div class="section-intro compact">
+            <div>
+              <p class="eyebrow">SECTION TRAINING</p>
+              <h2>专项训练</h2>
+              <p>训练材料为本站原创示例，用于建立完整流程；后续持续扩充题量。</p>
+            </div>
+          </div>
+
+          <div class="module-grid" id="module-grid">
+            <button class="module-card is-selected" data-module="listening"><span class="module-icon orange">◖</span><strong>听力</strong><small>精听 · 听写 · 跟读</small></button>
+            <button class="module-card" data-module="reading"><span class="module-icon green">▤</span><strong>阅读</strong><small>匹配 · 仔细阅读</small></button>
+            <button class="module-card" data-module="writing"><span class="module-icon blue">✎</span><strong>写作</strong><small>审题 · 提纲 · 成文</small></button>
+            <button class="module-card" data-module="translation"><span class="module-icon purple">译</span><strong>翻译</strong><small>拆句 · 表达 · 检查</small></button>
+            <button class="module-card" data-module="speaking"><span class="module-icon red">●</span><strong>口语</strong><small>计时 · 录音 · 回听</small></button>
+          </div>
+
+          <article class="practice-workspace" id="practice-workspace"></article>
+        </section>
+
+        <section class="view" id="view-notices" data-view="notices">
+          <div class="section-intro compact">
+            <div>
+              <p class="eyebrow">OFFICIAL NOTICES</p>
+              <h2>官方通知</h2>
+              <p>展示全国与省级官方信息；校内资格和安排始终以报名系统与所在学校通知为准。</p>
+            </div>
+            <span class="verified-chip">核对日期：2026-09-11</span>
+          </div>
+
+          <div class="notice-alert">
+            <span>!</span>
+            <div>
+              <strong>吉林省2026年下半年报名正在进行</strong>
+              <p>报名时间：9月10日 06:00—9月28日 17:00。请尽早登录系统核对学籍和照片。</p>
+            </div>
+          </div>
+
+          <div class="notice-list">
+            <article class="notice-card important">
+              <div class="notice-meta"><span>吉林省教育考试院</span><time>2026-08-26</time></div>
+              <h3>吉林省2026年下半年全国大学英语四、六级考试报名公告</h3>
+              <p>包含报名资格、报名时间、费用、准考证打印和考试日期。</p>
+              <dl class="notice-details">
+                <div><dt>笔试报名费</dt><dd>30元</dd></div>
+                <div><dt>口试报名费</dt><dd>50元</dd></div>
+                <div><dt>六级笔试</dt><dd>12月12日</dd></div>
+              </dl>
+              <a class="text-link" href="https://www.jleea.com.cn/site1/xiangqingye/202826/" target="_blank" rel="noreferrer">前往官方原文 →</a>
+            </article>
+
+            <article class="notice-card">
+              <div class="notice-meta"><span>中国教育考试网</span><time>长期有效</time></div>
+              <h3>全国大学英语四、六级考试官方入口</h3>
+              <p>查询考试动态、报名入口、准考证打印、成绩查询及考试介绍。</p>
+              <a class="text-link" href="https://cet.neea.edu.cn/" target="_blank" rel="noreferrer">打开CET官方网站 →</a>
+            </article>
+
+            <article class="notice-card">
+              <div class="notice-meta"><span>考试说明</span><time>官方资料</time></div>
+              <h3>六级笔试结构与分值说明</h3>
+              <p>总分710分；听力35%、阅读35%、写作和翻译合计30%。官方不设统一“及格线”。</p>
+              <a class="text-link" href="https://cet.neea.edu.cn/html1/report/16123/201-1.htm" target="_blank" rel="noreferrer">查看考试结构 →</a>
+            </article>
+
+            <article class="notice-card school-card">
+              <div class="notice-meta"><span>普适性说明</span><time>长期有效</time></div>
+              <h3>为什么不收录校级通知？</h3>
+              <p>各高校的资格核验、照片和考位安排可能不同。本站不采集学校信息，也不推测校内规则。</p>
+              <a class="text-link" href="https://cet-bm.neea.edu.cn/" target="_blank" rel="noreferrer">前往全国报名系统核验 →</a>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" id="view-notes" data-view="notes">
+          <div class="section-intro compact">
+            <div>
+              <p class="eyebrow">STUDY NOTES</p>
+              <h2>学习笔记</h2>
+              <p>笔记保存在当前浏览器。可插入图片，并通过数据管理导出备份。</p>
+            </div>
+            <span class="save-status" id="note-save-status">已保存</span>
+          </div>
+
+          <article class="note-panel">
+            <div class="note-toolbar" role="toolbar" aria-label="笔记格式">
+              <select id="note-font" aria-label="字体">
+                <option value="system-ui">默认字体</option>
+                <option value="serif">衬线字体</option>
+                <option value="monospace">等宽字体</option>
+                <option value="KaiTi, STKaiti, serif">楷体</option>
+              </select>
+              <select id="note-size" aria-label="字号">
+                <option value="3">正文</option>
+                <option value="4">大号</option>
+                <option value="5">标题</option>
+              </select>
+              <button data-command="bold" title="粗体"><strong>B</strong></button>
+              <button data-command="italic" title="斜体"><em>I</em></button>
+              <button data-command="underline" title="下划线"><u>U</u></button>
+              <button data-command="insertUnorderedList" title="列表">• 列表</button>
+              <label class="color-control" title="文字颜色"><input type="color" id="note-color" value="#173f39" /></label>
+              <label class="toolbar-upload">插入图片<input type="file" id="note-image" accept="image/*" hidden /></label>
+              <button id="insert-sticker" title="插入标记">⭐ 贴图</button>
+              <button id="clear-note">清空</button>
+            </div>
+            <div class="note-meta-row">
+              <input id="note-title" value="我的六级学习笔记" aria-label="笔记标题" />
+              <span id="note-count">0 字</span>
+            </div>
+            <div class="note-editor" id="note-editor" contenteditable="true" data-placeholder="记录生词、错题原因、听力连读、写作表达……"></div>
+          </article>
+        </section>
+
+        <section class="view" id="view-resources" data-view="resources">
+          <div class="section-intro compact">
+            <div>
+              <p class="eyebrow">RESOURCE CENTER</p>
+              <h2>资料与学习网站</h2>
+              <p>只建立来源索引，不镜像商业教材、付费题库或受版权保护的完整内容。</p>
+            </div>
+          </div>
+
+          <div class="resource-grid">
+            <article class="resource-group">
+              <span class="resource-type official">官方</span>
+              <h3>考试与报名</h3>
+              <a href="https://cet.neea.edu.cn/" target="_blank" rel="noreferrer"><strong>全国大学英语四六级考试</strong><small>通知、报名、准考证、成绩</small></a>
+              <a href="https://www.jleea.com.cn/" target="_blank" rel="noreferrer"><strong>吉林省教育考试院</strong><small>吉林省考试公告</small></a>
+              <a href="https://cet-bm.neea.edu.cn/" target="_blank" rel="noreferrer"><strong>CET网上报名系统</strong><small>报名资格与缴费</small></a>
+            </article>
+            <article class="resource-group">
+              <span class="resource-type listening">听说</span>
+              <h3>听力与口语</h3>
+              <a href="https://learnenglish.britishcouncil.org/" target="_blank" rel="noreferrer"><strong>British Council LearnEnglish</strong><small>B2/C1听说读写训练</small></a>
+              <a href="https://learningenglish.voanews.com/" target="_blank" rel="noreferrer"><strong>VOA Learning English</strong><small>慢速新闻、词汇和发音</small></a>
+              <a href="https://www.bbc.co.uk/learningenglish/" target="_blank" rel="noreferrer"><strong>BBC Learning English</strong><small>发音、语法和自然表达</small></a>
+            </article>
+            <article class="resource-group">
+              <span class="resource-type reading">词典</span>
+              <h3>词汇与语境</h3>
+              <a href="https://dictionary.cambridge.org/" target="_blank" rel="noreferrer"><strong>Cambridge Dictionary</strong><small>英美发音、释义和例句</small></a>
+              <a href="https://youglish.com/" target="_blank" rel="noreferrer"><strong>YouGlish</strong><small>真实视频语境中的发音</small></a>
+              <a href="https://language.chinadaily.com.cn/" target="_blank" rel="noreferrer"><strong>China Daily Language</strong><small>双语新闻与文化表达</small></a>
+            </article>
+            <article class="resource-group download-resource">
+              <span class="resource-type desktop">下载</span>
+              <h3>电脑软件版</h3>
+              <p>桌面端将在网页版稳定后发布，保留同样的数据格式和离线能力。</p>
+              <a href="https://github.com/bbhliheyi/cet6-90day/releases" target="_blank" rel="noreferrer"><strong>GitHub Releases</strong><small>Windows安装版与便携版下载入口</small></a>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <nav class="mobile-nav" aria-label="移动端导航">
+      <button class="is-active" data-route="dashboard"><span>⌂</span>首页</button>
+      <button data-route="plan"><span>▦</span>计划</button>
+      <button data-route="vocabulary"><span>Aa</span>单词</button>
+      <button data-route="practice"><span>▶</span>训练</button>
+      <button data-route="notes"><span>✎</span>笔记</button>
+    </nav>
+
+    <dialog id="data-dialog">
+      <form method="dialog" class="dialog-card">
+        <div class="card-heading">
+          <div><p class="eyebrow">LOCAL DATA</p><h3>学习数据管理</h3></div>
+          <button class="icon-button" value="cancel" aria-label="关闭">×</button>
+        </div>
+        <p class="muted">进度和笔记默认只保存在当前浏览器。建议定期导出备份。</p>
+        <div class="dialog-actions">
+          <button type="button" class="outline-button" id="export-data">导出备份</button>
+          <label class="outline-button file-button">导入备份<input type="file" id="import-data" accept="application/json" hidden /></label>
+          <button type="button" class="danger-button" id="reset-data">清除全部数据</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="test-dialog">
+      <form method="dialog" class="dialog-card test-dialog-card">
+        <div class="card-heading">
+          <div><p class="eyebrow">VOCAB TEST</p><h3>10词快速考核</h3></div>
+          <button class="icon-button" value="cancel" aria-label="关闭">×</button>
+        </div>
+        <div id="vocab-test-content"></div>
+      </form>
+    </dialog>
+
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>

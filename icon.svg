@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">六级90天训练营</title>
+  <rect width="512" height="512" rx="118" fill="#173f39"/>
+  <circle cx="414" cy="93" r="72" fill="#d66c38" opacity=".9"/>
+  <path d="M96 124h228c48 0 84 36 84 84v180H180c-46 0-84-38-84-84V124Z" fill="#f5f2e9"/>
+  <path d="M96 124h214c55 0 98 43 98 98v166H194c-54 0-98-44-98-98V124Z" fill="none" stroke="#f5f2e9" stroke-width="22"/>
+  <text x="145" y="285" fill="#173f39" font-family="Georgia, serif" font-size="132" font-weight="700">C6</text>
+  <path d="M155 334h194" stroke="#d66c38" stroke-width="18" stroke-linecap="round"/>
+</svg>
