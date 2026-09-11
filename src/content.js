@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.1.0";
+export const APP_VERSION = "0.3.0";
 
 export const EXAM_CONFIG = Object.freeze({
   region: "吉林 · 长春",
@@ -141,11 +141,13 @@ function buildDailyTasks(day, title) {
 
   if (REVIEW_DAYS.has(day)) {
     return [
-      task("errors", "review", "模拟错题归因", 40, "逐题选择错误原因，并写出下一次可执行的纠正动作。"),
-      task("vocabulary", "vocabulary", "高频错词回炉", 25, "完成错词拼写、听写和语境复习。"),
-      task("listening", "listening", "听力错段精听", 25, "对最薄弱片段完成逐句听写和跟读。"),
-      task("reading", "reading", "阅读证据复核", 25, "重新定位证据句，比较错误选项的干扰方式。"),
-      task("output", "writing", "写译错误改写", 25, "选择三处典型错误重新表达。"),
+      task("errors", "review", "模拟错题归因", 35, "逐题选择错误原因，并写出下一次可执行的纠正动作。"),
+      task("vocabulary", "vocabulary", "高频错词回炉", 20, "完成错词拼写、听写和语境复习。"),
+      task("sentences", "sentences", "每日核心句复习", 15, "复习3句，完成汉译英，并把其中1句改写到写作或口语主题。"),
+      task("eartraining", "eartraining", "错段磨耳朵", 10, "不看文本重听最薄弱片段，完成主旨复述、关键语块听写和跟读。"),
+      task("listening", "listening", "听力错题重做", 10, "重新作答并确认题干、证据句、同义替换和错误原因。"),
+      task("reading", "reading", "阅读证据复核", 20, "重新定位证据句，比较错误选项的干扰方式。"),
+      task("output", "writing", "写译错误改写", 20, "选择三处典型错误重新表达。"),
     ];
   }
 
@@ -159,28 +161,34 @@ function buildDailyTasks(day, title) {
     return [
       task("special", "exam", title, 25, specialDetails[day]),
       task("vocabulary", "vocabulary", "轻量词汇复习", 20, "只复习高频错词和熟词生义。"),
-      task("listening", "listening", "轻量听力热身", 15, "保持语音敏感度，不追求训练量。"),
-      task("review", "review", "状态与策略确认", 15, "确认作息、答题顺序和个人检查清单。"),
+      task("sentences", "sentences", "核心句热身", 15, "复述3句高频表达，并各完成一次主题替换。"),
+      task("eartraining", "eartraining", "轻量磨耳朵", 10, "听一段熟悉的长对话、篇章或报道，只抓结构和重音。"),
+      task("listening", "listening", "听力信号词热身", 5, "快速回顾一组题干和证据定位，不再做高强度精听。"),
+      task("review", "review", "状态与策略确认", 10, "确认作息、答题顺序和个人检查清单。"),
     ];
   }
 
   if (WEEKLY_TEST_DAYS.has(day)) {
     return [
-      task("vocabulary", "vocabulary", "100词周测", 25, "混合认读、拼写、听写和语境题。"),
-      task("listening", "listening", "听力整组训练", 25, "一次完成后再进入精听复盘。"),
-      task("reading", "reading", "阅读组合训练", 30, "记录每题耗时和证据位置。"),
+      task("vocabulary", "vocabulary", "100词周测", 20, "混合认读、拼写、听写和语境题。"),
+      task("sentences", "sentences", "核心句周复习", 15, "复习本周21句，抽查6句汉译英和3句主题改写。"),
+      task("eartraining", "eartraining", "连续语流周练", 10, "选一段长对话或讲座，不看文本完成主旨、语块听写和复述。"),
+      task("listening", "listening", "听力整组训练", 10, "按考试状态完成选择题，再核对证据和干扰项。"),
+      task("reading", "reading", "阅读组合训练", 25, "记录每题耗时和证据位置。"),
       task("output", day % 2 ? "translation" : "writing", "写作或翻译限时任务", 25, "完成后按个人错误清单检查。"),
       task("speaking", "speaking", "口语录音", 15, "完成一次计时表达并回听自评。"),
-      task("review", "review", "周报与计划校准", 15, "比较本周正确率、耗时和学习完成度。"),
+      task("review", "review", "周报与计划校准", 10, "比较本周正确率、耗时和学习完成度。"),
     ];
   }
 
   const outputModule = day % 2 === 0 ? "writing" : "translation";
   const outputTitle = outputModule === "writing" ? "写作训练" : "翻译训练";
   return [
-    task("vocabulary", "vocabulary", "词汇学习与到期复习", 25, `围绕“${title}”完成认读、拼写或语境训练。`),
-    task("listening", "listening", "听力精练", 25, "首听答题、二听定位、三听复盘一个薄弱片段。"),
-    task("reading", "reading", "阅读限时训练", 30, "完成一组题并标出证据句与干扰项。"),
+    task("vocabulary", "vocabulary", "词汇学习与到期复习", 20, `围绕“${title}”完成认读、拼写或语境训练。`),
+    task("sentences", "sentences", "每日核心句", 15, "学习3句可输出表达，完成汉译英，并挑1句用于写作或口语改写。"),
+    task("eartraining", "eartraining", "每日磨耳朵", 10, "听1段长对话、篇章、报道或讲座，完成盲听、语块听写和影子跟读。"),
+    task("listening", "listening", "听力答题精练", 10, "按考试状态完成1组选择题，再定位证据句并分析干扰项。"),
+    task("reading", "reading", "阅读限时训练", 25, "完成一组题并标出证据句与干扰项。"),
     task("output", outputModule, outputTitle, 25, "按审题、组织、成文和检查四步完成。"),
     task("speaking", "speaking", "口语表达", 15, "完成一次计时表达、录音或影子跟读。"),
     task("review", "review", "错题复盘", 10, "处理当天最有价值的三条错误记录。"),
@@ -282,7 +290,10 @@ export const PRACTICE_CONTENT = Object.freeze({
       question: "Why did the library extend its weekend hours?",
       options: ["To host more public lectures", "To provide students with evening study space", "To reduce the number of weekday visitors", "To prepare for a building renovation"],
       answer: 1,
+      questionType: "原因细节题",
+      evidence: "Many university students had asked for a quiet place to study in the evening.",
       explanation: "关键信息是 university students asked for a quiet place to study in the evening。",
+      optionAnalysis: ["原文没有提到举办更多讲座。", "正确。对应学生希望晚上有安静学习空间。", "higher visitor numbers 被 not simply 否定，且没有减少工作日访客。", "原文没有提到装修。"],
     },
     {
       id: "listen-campus-garden",
@@ -291,7 +302,10 @@ export const PRACTICE_CONTENT = Object.freeze({
       question: "What unexpected benefit did the garden produce?",
       options: ["It lowered food prices", "It attracted professional farmers", "It encouraged students from different departments to connect", "It increased the size of the campus"],
       answer: 2,
+      questionType: "转折后细节题",
+      evidence: "Students from different departments began to meet there and exchange ideas.",
       explanation: "unexpected benefit 后说明不同院系学生开始见面并交流。",
+      optionAnalysis: ["材料只提到种植蔬菜，没有提到价格。", "参与者是学生，没有职业农民。", "正确。meet and exchange ideas 对应 connect。", "花园利用闲置角落，并未扩大校园。"],
     },
   ],
   reading: [
@@ -304,6 +318,8 @@ export const PRACTICE_CONTENT = Object.freeze({
       answer: 1,
       evidence: "The key is to decide the length and purpose of the break in advance.",
       explanation: "作者强调提前决定休息的长度和目的。",
+      questionType: "观点细节题",
+      optionAnalysis: ["社交媒体被作为可能失控的反例。", "正确。planned 对应 in advance。", "作者没有说必须全部完成后休息。", "半小时是失控休息的例子，不是建议。"],
     },
     {
       id: "read-local-museums",
@@ -314,20 +330,50 @@ export const PRACTICE_CONTENT = Object.freeze({
       answer: 2,
       evidence: "The most successful projects begin with a clear educational need.",
       explanation: "结尾句直接给出成功项目应从明确教育需求出发。",
+      questionType: "段尾主旨题",
+      optionAnalysis: ["原文明说数字访问不是实体参观的替代。", "作者反对为了时髦而采用技术。", "正确。educational purpose 对应 educational need。", "文章讨论的是低成本数字工具，而非昂贵展览。"],
     },
   ],
   writing: [
-    { id: "write-digital-focus", title: "数字工具与专注力", prompt: "Write an essay on how university students can use digital tools without allowing them to weaken concentration. Give reasons and practical examples.", hints: ["明确数字工具既有价值也有干扰", "提出两项可执行措施", "结尾回到有意识使用技术"] },
-    { id: "write-campus-service", title: "大学生参与校园公共服务", prompt: "Write an essay on whether university students should take part in improving shared campus services. Support your view with reasons and examples.", hints: ["说明参与的教育价值", "讨论时间成本或边界", "给出具体参与方式"] },
+    {
+      id: "write-digital-focus",
+      title: "数字工具与专注力",
+      prompt: "Write an essay on how university students can use digital tools without allowing them to weaken concentration. Give reasons and practical examples.",
+      hints: ["明确数字工具既有价值也有干扰", "提出两项可执行措施", "结尾回到有意识使用技术"],
+      outline: ["第一段：回应题目，技术价值取决于使用边界", "第二段：关闭非必要通知并限定学习应用", "第三段：按任务分时段使用，休息时离开屏幕", "结尾：有目的地使用而不是被动响应"],
+      sample: "Digital tools can improve learning only when students set clear boundaries for when and why they use them. Notifications should be turned off during focused study, while reference apps should be opened only for a specific task. Students can also divide study into short blocks and leave the screen during breaks. In this way, technology supports concentration instead of controlling it.",
+    },
+    {
+      id: "write-campus-service",
+      title: "大学生参与校园公共服务",
+      prompt: "Write an essay on whether university students should take part in improving shared campus services. Support your view with reasons and examples.",
+      hints: ["说明参与的教育价值", "讨论时间成本或边界", "给出具体参与方式"],
+      outline: ["第一段：表明适度参与值得鼓励", "第二段：学生最了解日常使用中的问题", "第三段：参与可以培养责任感，但不应替代专业岗位", "结尾：通过反馈、志愿服务和项目建议参与"],
+      sample: "University students should take part in improving shared campus services because they use these services every day and can identify practical problems quickly. Their participation can also develop responsibility and cooperation. However, students should contribute through feedback, volunteer projects and carefully designed proposals rather than replace trained staff. Such participation benefits both the campus and the students themselves.",
+    },
   ],
   translation: [
-    { id: "trans-winter-city", title: "北方城市的冬季公共生活", source: "在中国北方，冬季不仅意味着寒冷，也形成了独特的公共生活。许多城市通过冰雪运动、节庆活动和公共文化空间，鼓励居民走出家门。合理利用冬季资源既能丰富市民生活，也能带动当地旅游和服务业的发展。", keyPoints: ["不仅……也……的并列结构", "鼓励某人做某事", "合理利用资源", "带动旅游和服务业发展"] },
-    { id: "trans-community-library", title: "社区图书馆", source: "近年来，一些社区图书馆开始提供更加灵活的服务。除了借阅图书，人们还可以参加讲座、学习数字技能或与邻居交流。这些小型公共空间使知识更容易获得，也增强了社区成员之间的联系。", keyPoints: ["近年来的时态", "除了……还……", "使知识更容易获得", "增强成员之间的联系"] },
+    {
+      id: "trans-winter-city",
+      title: "北方城市的冬季公共生活",
+      source: "在中国北方，冬季不仅意味着寒冷，也形成了独特的公共生活。许多城市通过冰雪运动、节庆活动和公共文化空间，鼓励居民走出家门。合理利用冬季资源既能丰富市民生活，也能带动当地旅游和服务业的发展。",
+      keyPoints: ["不仅……也……的并列结构", "鼓励某人做某事", "合理利用资源", "带动旅游和服务业发展"],
+      reference: "In northern China, winter means more than cold weather; it has also shaped a distinctive form of public life. Many cities encourage residents to leave their homes through winter sports, festivals and public cultural spaces. Making proper use of winter resources can not only enrich residents' lives but also promote the development of local tourism and service industries.",
+      analysis: ["第一句用 means more than 表达“不仅意味着”更自然", "第二句以 cities 作主语，encourage somebody to do something", "第三句使用动名词短语作主语，并用 not only ... but also ... 连接两个结果"],
+    },
+    {
+      id: "trans-community-library",
+      title: "社区图书馆",
+      source: "近年来，一些社区图书馆开始提供更加灵活的服务。除了借阅图书，人们还可以参加讲座、学习数字技能或与邻居交流。这些小型公共空间使知识更容易获得，也增强了社区成员之间的联系。",
+      keyPoints: ["近年来的时态", "除了……还……", "使知识更容易获得", "增强成员之间的联系"],
+      reference: "In recent years, some community libraries have begun to offer more flexible services. In addition to borrowing books, people can attend lectures, learn digital skills or communicate with their neighbours. These small public spaces make knowledge more accessible and strengthen connections among community members.",
+      analysis: ["近年来通常与现在完成时连用", "In addition to 后接名词或动名词", "make knowledge more accessible 比 make people get knowledge easier 更自然", "connections among 强调多人之间的联系"],
+    },
   ],
   speaking: [
-    { id: "speak-learning-space", title: "理想的学习空间", prompt: "Describe an ideal place for university students to study. Explain what facilities it should provide and why.", followUp: "Should universities keep study spaces open late at night? Why or why not?" },
-    { id: "speak-community-work", title: "大学生与社区服务", prompt: "Describe one useful way university students can contribute to their local community.", followUp: "What can students learn from participating in community work?" },
-    { id: "speak-technology", title: "课堂中的数字工具", prompt: "Do digital tools always improve classroom learning? Give reasons and an example.", followUp: "How should teachers respond when technology distracts students?" },
+    { id: "speak-learning-space", title: "理想的学习空间", prompt: "Describe an ideal place for university students to study. Explain what facilities it should provide and why.", followUp: "Should universities keep study spaces open late at night? Why or why not?", structure: ["观点：安静但能支持不同任务", "设施：稳定网络、插座和可预约讨论区", "原因：减少寻找资源和空间冲突", "结论：开放时间应兼顾需求与管理成本"], sample: "An ideal study space should be quiet enough for concentration but flexible enough for different learning activities. It should provide reliable internet access, power outlets and separate areas for discussion. These facilities allow students to focus without disturbing one another. I also think some spaces should stay open late during examination periods, provided that safety and staffing can be ensured." },
+    { id: "speak-community-work", title: "大学生与社区服务", prompt: "Describe one useful way university students can contribute to their local community.", followUp: "What can students learn from participating in community work?", structure: ["选择一种服务：数字技能辅导", "说明服务对象和具体做法", "解释对社区的价值", "说明学生获得的沟通与责任感"], sample: "University students can help older residents learn basic digital skills, such as making medical appointments or using public transport apps. The service solves practical problems and reduces anxiety about technology. Students, meanwhile, learn to explain ideas patiently and understand needs that differ from their own." },
+    { id: "speak-technology", title: "课堂中的数字工具", prompt: "Do digital tools always improve classroom learning? Give reasons and an example.", followUp: "How should teachers respond when technology distracts students?", structure: ["直接回答：不总是", "优点：快速访问资料与互动", "风险：通知和无关内容分散注意", "建议：明确任务、限定使用时间"], sample: "Digital tools do not always improve learning. They are useful when students need quick access to information or immediate feedback, but the same devices can also create distractions. Teachers should explain the purpose of each tool, set a clear time limit and ask students to close unrelated applications." },
   ],
 });
 
@@ -340,6 +386,8 @@ export const PREP_TASKS = Object.freeze([
 
 export const SKILL_LABELS = Object.freeze({
   vocabulary: "词汇",
+  sentences: "核心句",
+  eartraining: "磨耳朵",
   listening: "听力",
   reading: "阅读",
   writing: "写作",
@@ -351,3 +399,144 @@ export const SKILL_LABELS = Object.freeze({
   plan: "计划",
   data: "数据",
 });
+
+export const CORE_SENTENCES = Object.freeze([
+  {
+    id: "sentence-01",
+    topic: "学习与成长",
+    english: "Consistent effort is more valuable than a brief burst of enthusiasm.",
+    chinese: "持续的努力比短暂的热情更有价值。",
+    pattern: "A is more valuable than B",
+    keywords: ["consistent effort", "brief burst", "enthusiasm"],
+    writingUse: "适合写作中比较长期行动与短期冲动。",
+    speakingUse: "可用于回答如何保持学习动力。",
+    note: "more valuable than 表示“比……更有价值”，主语可替换为 regular practice。",
+  },
+  {
+    id: "sentence-02",
+    topic: "数字工具",
+    english: "Digital tools can improve learning only when students set clear boundaries for their use.",
+    chinese: "只有当学生为数字工具的使用设定清晰边界时，数字工具才能改善学习。",
+    pattern: "only when ... can ...",
+    keywords: ["improve learning", "set clear boundaries", "for their use"],
+    writingUse: "适合数字化、专注力和教育类作文的让步与条件表达。",
+    speakingUse: "可用于讨论手机是否有助于学习。",
+    note: "only when 置于句首时，主句使用部分倒装；本句放在主语后，结构更易掌握。",
+  },
+  {
+    id: "sentence-03",
+    topic: "教育公平",
+    english: "Access to reliable information is essential for students from different educational backgrounds.",
+    chinese: "可靠信息的获取对于来自不同教育背景的学生至关重要。",
+    pattern: "Access to ... is essential for ...",
+    keywords: ["access to", "reliable information", "educational backgrounds"],
+    writingUse: "适合教育机会、公共服务和信息公平主题。",
+    speakingUse: "可用于说明学校应提供什么资源。",
+    note: "access 是不可数名词，常用 access to something，不要写 access of。",
+  },
+  {
+    id: "sentence-04",
+    topic: "环境保护",
+    english: "Small changes in daily habits can make a meaningful contribution to environmental protection.",
+    chinese: "日常习惯中的微小改变可以为环境保护作出有意义的贡献。",
+    pattern: "make a contribution to ...",
+    keywords: ["small changes", "daily habits", "meaningful contribution"],
+    writingUse: "适合环境、低碳生活和个人责任类作文。",
+    speakingUse: "可用于回答个人如何保护环境。",
+    note: "contribution 后接介词 to；meaningful 比 important 更适合表达“有意义的”。",
+  },
+  {
+    id: "sentence-05",
+    topic: "城市生活",
+    english: "Well-designed public spaces can strengthen community ties and improve the quality of urban life.",
+    chinese: "设计合理的公共空间可以加强社区联系，改善城市生活质量。",
+    pattern: "can strengthen ... and improve ...",
+    keywords: ["well-designed", "community ties", "quality of urban life"],
+    writingUse: "适合城市发展、公共设施和社区服务类作文。",
+    speakingUse: "可用于描述理想城市或社区。",
+    note: "两个并列动词共用 can，避免重复写 can。",
+  },
+  {
+    id: "sentence-06",
+    topic: "科技创新",
+    english: "Innovation becomes meaningful when it solves a real problem instead of merely attracting attention.",
+    chinese: "当创新解决真实问题，而不是仅仅吸引注意时，创新才有意义。",
+    pattern: "when ... instead of ...",
+    keywords: ["becomes meaningful", "solve a real problem", "merely"],
+    writingUse: "适合科技创新、人工智能和公共产品类作文。",
+    speakingUse: "可用于评价一种新技术是否真正有用。",
+    note: "instead of 后接动名词或名词；merely 表示“仅仅”，可降低表达绝对化。",
+  },
+  {
+    id: "sentence-07",
+    topic: "阅读方法",
+    english: "The ability to locate evidence quickly is just as important as the ability to understand the main idea.",
+    chinese: "快速定位证据的能力与理解主旨的能力同样重要。",
+    pattern: "as important as ...",
+    keywords: ["locate evidence", "main idea", "just as ... as"],
+    writingUse: "可迁移到阅读策略、信息素养和学习方法主题。",
+    speakingUse: "可用于解释考试阅读中为什么要找证据。",
+    note: "两个 ability to do 结构并列，句子有较强的六级写作质感。",
+  },
+  {
+    id: "sentence-08",
+    topic: "听力训练",
+    english: "Repeated exposure to natural speech gradually makes unfamiliar sounds easier to recognize.",
+    chinese: "反复接触自然语音会逐渐使陌生的声音更容易被识别。",
+    pattern: "make + object + adjective",
+    keywords: ["repeated exposure", "natural speech", "recognize"],
+    writingUse: "适合学习方法、语言输入和个人成长类表达。",
+    speakingUse: "可用于回答如何提高听力。",
+    note: "make unfamiliar sounds easier to recognize 是 make 宾语+形容词+不定式结构。",
+  },
+  {
+    id: "sentence-09",
+    topic: "文化传承",
+    english: "Traditional culture remains alive when it is explained in a way that younger generations can understand.",
+    chinese: "当传统文化以年轻一代能够理解的方式被讲述时，它才能保持活力。",
+    pattern: "in a way that ...",
+    keywords: ["remain alive", "traditional culture", "younger generations"],
+    writingUse: "适合中国文化、非遗、教育和代际交流主题。",
+    speakingUse: "可用于回答如何让传统文化吸引年轻人。",
+    note: "in a way that 引出定语从句，比简单写 so that 更精准。",
+  },
+  {
+    id: "sentence-10",
+    topic: "就业与能力",
+    english: "Employers increasingly value applicants who can communicate clearly and adapt to changing situations.",
+    chinese: "雇主越来越看重能够清晰沟通并适应变化情境的申请者。",
+    pattern: "value applicants who ...",
+    keywords: ["increasingly", "applicants", "adapt to"],
+    writingUse: "适合就业、大学教育和综合能力主题。",
+    speakingUse: "可用于讨论大学生应培养哪些能力。",
+    note: "who 引导定语从句，同时修饰 applicants；adapt to 后接名词或动名词。",
+  },
+  {
+    id: "sentence-11",
+    topic: "公共健康",
+    english: "A sustainable routine should leave enough room for rest, exercise and meaningful social interaction.",
+    chinese: "可持续的日常安排应该留出足够时间用于休息、锻炼和有意义的社交。",
+    pattern: "leave room for ...",
+    keywords: ["sustainable routine", "leave room for", "social interaction"],
+    writingUse: "适合健康、平衡生活和大学生时间管理主题。",
+    speakingUse: "可用于回答如何安排大学生活。",
+    note: "leave room for 是高频搭配；enough 修饰 room，不要机械翻译成 leave enough time。",
+  },
+  {
+    id: "sentence-12",
+    topic: "社会责任",
+    english: "Responsible citizens do not simply complain about public problems; they also look for practical ways to improve them.",
+    chinese: "负责任的公民不会只是抱怨公共问题，他们也会寻找切实可行的办法来改善这些问题。",
+    pattern: "not simply ...; also ...",
+    keywords: ["responsible citizens", "public problems", "practical ways"],
+    writingUse: "适合社会责任、志愿服务和公共参与类作文。",
+    speakingUse: "可用于回答大学生如何参与社区。",
+    note: "not simply ... also ... 形成对照，适合避免观点单薄。",
+  },
+]);
+
+export function dailyCoreSentences(day = 1) {
+  const normalizedDay = Math.max(1, Number(day) || 1);
+  const start = ((normalizedDay - 1) * 3) % CORE_SENTENCES.length;
+  return [0, 1, 2].map((offset) => CORE_SENTENCES[(start + offset) % CORE_SENTENCES.length]);
+}

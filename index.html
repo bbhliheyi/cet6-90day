@@ -28,7 +28,10 @@
           <button class="nav-item is-active" data-route="dashboard"><span>⌂</span>学习首页</button>
           <button class="nav-item" data-route="plan"><span>▦</span>90天计划</button>
           <button class="nav-item" data-route="vocabulary"><span>Aa</span>单词训练</button>
+          <button class="nav-item" data-route="sentences"><span>句</span>核心句</button>
+          <button class="nav-item" data-route="eartraining"><span>♫</span>磨耳朵</button>
           <button class="nav-item" data-route="practice"><span>▶</span>专项训练</button>
+          <button class="nav-item" data-route="lessons"><span>☰</span>系统讲解</button>
           <button class="nav-item" data-route="notices"><span>!</span>官方通知</button>
           <button class="nav-item" data-route="notes"><span>✎</span>学习笔记</button>
           <button class="nav-item" data-route="resources"><span>↗</span>资料中心</button>
@@ -103,6 +106,7 @@
             <span class="date-chip" id="today-date">9月11日 星期五</span>
           </div>
           <div class="task-grid" id="today-tasks"></div>
+          <article class="today-standard panel" id="today-standard"></article>
 
           <div class="dashboard-lower">
             <article class="panel">
@@ -125,6 +129,7 @@
               </div>
               <a class="outline-button" id="release-link" href="https://github.com/bbhliheyi/cet6-90day/releases" target="_blank" rel="noreferrer">查看下载页</a>
             </article>
+            <article class="panel weakness-panel" id="weakness-report"></article>
           </div>
         </section>
 
@@ -151,7 +156,10 @@
               <h2>单词训练</h2>
               <p>认读、发音、拼写、语境和搭配五步训练，复习节奏由本站独立规则安排。</p>
             </div>
-            <button class="outline-button" id="start-vocab-test">开始10词考核</button>
+            <div class="section-actions">
+              <button class="outline-button" data-open-lesson="vocabulary-method">查看词汇讲解</button>
+              <button class="outline-button" id="start-vocab-test">开始10词考核</button>
+            </div>
           </div>
 
           <div class="vocab-layout">
@@ -199,8 +207,47 @@
                 <p class="eyebrow">复习原则</p>
                 <p class="muted">答错当天重现；模糊次日复习；掌握后逐步延长间隔。</p>
               </article>
+              <article class="panel memory-panel">
+                <div class="card-heading">
+                  <div><p class="eyebrow">MEMORY RECORD</p><h3>个人记忆档案</h3></div>
+                  <span class="memory-stage" id="memory-stage">新词</span>
+                </div>
+                <div id="memory-profile"></div>
+              </article>
             </div>
           </div>
+        </section>
+
+        <section class="view" id="view-sentences" data-view="sentences">
+          <div class="section-intro compact">
+            <div>
+              <p class="eyebrow">OUTPUT SENTENCES</p>
+              <h2>每日核心句</h2>
+              <p>核心句用于汉译英、写作迁移和口语改写；它不是磨耳朵材料。</p>
+            </div>
+            <span class="verified-chip" id="sentence-day-label">今日3句</span>
+          </div>
+          <article class="training-definition split-definition">
+            <div><strong>核心句练什么</strong><p>记住可复用句型和搭配，最终能脱离原主题主动输出。</p></div>
+            <div><strong>今日达标</strong><p>3句听读、至少2句汉译英、1句完成写作或口语主题改写。</p></div>
+          </article>
+          <div class="sentence-list" id="sentence-list"></div>
+        </section>
+
+        <section class="view" id="view-eartraining" data-view="eartraining">
+          <div class="section-intro compact">
+            <div>
+              <p class="eyebrow">CONNECTED SPEECH</p>
+              <h2>每日磨耳朵</h2>
+              <p>使用长对话、听力篇章、报道和讲座，训练在连续语流中抓住结构与意义。</p>
+            </div>
+            <button class="outline-button" data-open-lesson="ear-training-method">查看训练方法</button>
+          </div>
+          <article class="training-definition split-definition">
+            <div><strong>不是循环听单句</strong><p>材料包含场景、人物、转折和信息推进，更接近六级听力所需的连续理解。</p></div>
+            <div><strong>五步达标</strong><p>盲听主旨 → 作答 → 3个语块听写 → 影子跟读 → 2—3句复述。</p></div>
+          </article>
+          <article class="ear-workspace" id="ear-workspace"></article>
         </section>
 
         <section class="view" id="view-practice" data-view="practice">
@@ -210,10 +257,13 @@
               <h2>专项训练</h2>
               <p>训练材料为本站原创示例，用于建立完整流程；后续持续扩充题量。</p>
             </div>
+            <button class="outline-button" id="practice-lesson-button">查看当前题型讲解</button>
           </div>
 
           <div class="module-grid" id="module-grid">
-            <button class="module-card is-selected" data-module="listening"><span class="module-icon orange">◖</span><strong>听力</strong><small>精听 · 听写 · 跟读</small></button>
+            <button class="module-card is-selected" data-module="listening"><span class="module-icon orange">◖</span><strong>听力答题</strong><small>题干 · 证据 · 选项</small></button>
+            <button class="module-card" data-route="sentences"><span class="module-icon blue">句</span><strong>核心句</strong><small>汉译英 · 写作 · 口语</small></button>
+            <button class="module-card" data-route="eartraining"><span class="module-icon orange">♫</span><strong>磨耳朵</strong><small>对话 · 篇章 · 讲座</small></button>
             <button class="module-card" data-module="reading"><span class="module-icon green">▤</span><strong>阅读</strong><small>匹配 · 仔细阅读</small></button>
             <button class="module-card" data-module="writing"><span class="module-icon blue">✎</span><strong>写作</strong><small>审题 · 提纲 · 成文</small></button>
             <button class="module-card" data-module="translation"><span class="module-icon purple">译</span><strong>翻译</strong><small>拆句 · 表达 · 检查</small></button>
@@ -221,6 +271,21 @@
           </div>
 
           <article class="practice-workspace" id="practice-workspace"></article>
+        </section>
+
+        <section class="view" id="view-lessons" data-view="lessons">
+          <div class="section-intro compact">
+            <div>
+              <p class="eyebrow">METHOD &amp; EXPLANATION</p>
+              <h2>系统讲解</h2>
+              <p>每个模块都按“考什么—怎么做—例题怎么拆—为什么错—今天达到什么标准”讲解。</p>
+            </div>
+            <span class="verified-chip">适用于全国考生</span>
+          </div>
+          <div class="lesson-layout">
+            <aside class="lesson-index" id="lesson-index"></aside>
+            <article class="lesson-reader" id="lesson-reader"></article>
+          </div>
         </section>
 
         <section class="view" id="view-notices" data-view="notices">
@@ -243,7 +308,7 @@
 
           <div class="notice-list">
             <article class="notice-card important">
-              <div class="notice-meta"><span>吉林省教育考试院</span><time>2026-08-26</time></div>
+              <div class="notice-meta"><span>吉林省教育考试院</span><time>2026-09-01</time></div>
               <h3>吉林省2026年下半年全国大学英语四、六级考试报名公告</h3>
               <p>包含报名资格、报名时间、费用、准考证打印和考试日期。</p>
               <dl class="notice-details">
@@ -355,6 +420,7 @@
               <a href="https://github.com/bbhliheyi/cet6-90day/releases" target="_blank" rel="noreferrer"><strong>GitHub Releases</strong><small>Windows安装版与便携版下载入口</small></a>
             </article>
           </div>
+          <div class="resource-catalog" id="resource-catalog"></div>
         </section>
       </main>
     </div>
@@ -363,6 +429,7 @@
       <button class="is-active" data-route="dashboard"><span>⌂</span>首页</button>
       <button data-route="plan"><span>▦</span>计划</button>
       <button data-route="vocabulary"><span>Aa</span>单词</button>
+      <button data-route="eartraining"><span>♫</span>磨耳</button>
       <button data-route="practice"><span>▶</span>训练</button>
       <button data-route="notes"><span>✎</span>笔记</button>
     </nav>

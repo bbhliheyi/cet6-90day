@@ -1,4 +1,4 @@
-const CACHE_NAME = "cet6-90day-v0.1.0";
+const CACHE_NAME = "cet6-90day-v0.3.0";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -7,6 +7,9 @@ const APP_SHELL = [
   "./icon.svg",
   "./src/app.js",
   "./src/content.js",
+  "./src/ear-training.js",
+  "./src/lessons.js",
+  "./src/resources.js",
   "./src/storage.js",
   "./src/db.js"
 ];

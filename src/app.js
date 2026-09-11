@@ -7,7 +7,11 @@ import {
   SKILL_LABELS,
   VOCABULARY,
   buildPlan,
+  dailyCoreSentences,
 } from "./content.js";
+import { RESOURCE_CATALOG } from "./resources.js";
+import { EAR_TRAINING_UNITS } from "./ear-training.js";
+import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js";
 import { getLatestRecording, saveRecording } from "./db.js";
 import { exportState, importState, loadState, resetState, saveState } from "./storage.js";
 
@@ -19,7 +23,10 @@ const ROUTE_TITLES = Object.freeze({
   dashboard: "学习首页",
   plan: "90天计划",
   vocabulary: "单词训练",
+  sentences: "每日核心句",
+  eartraining: "每日磨耳朵",
   practice: "专项训练",
+  lessons: "系统讲解",
   notices: "官方通知",
   notes: "学习笔记",
   resources: "资料中心",
@@ -32,6 +39,8 @@ let currentWordIndex = 0;
 let activePhase = "all";
 let activePracticeModule = "listening";
 let activePracticeIndex = 0;
+let activeLessonId = "vocabulary-method";
+let activeEarIndex = 0;
 let vocabularyTest = null;
 let deferredInstallPrompt = null;
 let workspaceTimer = null;
@@ -84,6 +93,17 @@ function taskKey(day, taskId) {
 
 function taskIsComplete(day, taskId) {
   return Boolean(state.completedTasks[taskKey(day, taskId)]);
+}
+
+function taskCompletionSummary(day, tasks) {
+  const completed = tasks.filter((item) => taskIsComplete(day, item.id));
+  return {
+    completed: completed.length,
+    total: tasks.length,
+    minutes: completed.reduce((total, item) => total + item.minutes, 0),
+    totalMinutes: tasks.reduce((total, item) => total + item.minutes, 0),
+    percent: tasks.length ? Math.round((completed.length / tasks.length) * 100) : 0,
+  };
 }
 
 function recalculateDay(day) {
@@ -157,8 +177,12 @@ function navigate(route, options = {}) {
   if (route === "dashboard") renderDashboard();
   if (route === "plan") renderPlan(options.focusToday);
   if (route === "vocabulary") renderVocabulary();
+  if (route === "sentences") renderSentences();
+  if (route === "eartraining") renderEarTraining();
   if (route === "practice") renderPracticeWorkspace();
+  if (route === "lessons") renderLessons();
   if (route === "notes") loadNoteEditor();
+  if (route === "resources") renderResourceCatalog();
 }
 
 function currentTaskContext() {
@@ -175,7 +199,6 @@ function renderTodayTasks(context) {
     return;
   }
   container.innerHTML = context.tasks
-    .slice(0, 6)
     .map((item) => {
       const checked = taskIsComplete(context.day, item.id);
       return `<label class="task-card ${checked ? "is-complete" : ""}">
@@ -199,7 +222,7 @@ function renderTodayTasks(context) {
 }
 
 function skillScores() {
-  const modules = ["vocabulary", "listening", "reading", "writing", "translation", "speaking"];
+  const modules = ["vocabulary", "eartraining", "listening", "reading", "writing", "translation", "speaking"];
   const taskCounts = Object.values(state.completedTasks).reduce((counts, item) => {
     counts[item.module] = (counts[item.module] || 0) + 1;
     return counts;
@@ -237,12 +260,53 @@ function renderDashboard() {
     $("#today-guidance").textContent = "本周期90天计划已经结束，请导出数据并查看最新官方通知。";
   }
   renderTodayTasks(context);
+  renderTodayStandard(context);
   renderSkillBars();
   const sevenDaysAgo = Date.now() - 7 * 86_400_000;
   const weeklyMinutes = Object.values(state.completedTasks)
     .filter((item) => new Date(item.completedAt).getTime() >= sevenDaysAgo)
     .reduce((sum, item) => sum + (item.minutes || 0), 0);
   $("#weekly-duration").textContent = `${weeklyMinutes} 分钟`;
+  renderWeaknessReport();
+}
+
+function renderTodayStandard(context) {
+  const container = $("#today-standard");
+  if (!container) return;
+  if (!context.tasks.length) {
+    container.innerHTML = `<div class="card-heading"><div><p class="eyebrow">TODAY'S STANDARD</p><h3>本周期任务已结束</h3></div></div><p class="muted">请以最新官方通知为准，导出本周期数据并等待下一轮计划。</p>`;
+    return;
+  }
+  const summary = taskCompletionSummary(context.day, context.tasks);
+  const phase = context.day > 0 && context.day <= 90 ? PLAN[context.day - 1].phaseLabel : "准备期";
+  container.innerHTML = `<div class="card-heading"><div><p class="eyebrow">TODAY'S STANDARD · ${context.day > 0 ? `DAY ${context.day}` : "PREP"}</p><h3>今日${summary.completed === summary.total ? "已达标" : "完成标准"}</h3></div><strong class="standard-percent">${summary.percent}%</strong></div><div class="standard-progress"><i style="width:${summary.percent}%"></i></div><p class="standard-summary">已完成 <b>${summary.completed}/${summary.total}</b> 项 · ${summary.minutes}/${summary.totalMinutes} 分钟 · 阶段：${phase}</p><div class="standard-task-list">${context.tasks.map((item) => {
+    const guidance = dailyTaskGuidance(context.day, item, phase) || {};
+    const route = ["vocabulary", "sentences"].includes(item.module) ? item.module : item.module === "eartraining" ? "eartraining" : item.module === "listening" ? "practice" : null;
+    return `<div class="standard-task ${taskIsComplete(context.day, item.id) ? "is-complete" : ""}"><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(guidance.quantity || item.detail)}</small><small>达标：${escapeHtml(guidance.criterion || "完成并留下可复查记录")}</small></div>${route ? `<button class="text-button" data-open-module="${route}">开始 →</button>` : ""}</div>`;
+  }).join("")}</div><p class="standard-note">判定规则：所有今日任务都完成，才算“今日达标”；只完成部分任务会保留进度，但不会计入完整天数。</p>`;
+  $$('[data-open-module]', container).forEach((button) => button.addEventListener("click", () => navigate(button.dataset.openModule)));
+}
+
+function renderWeaknessReport() {
+  const container = $("#weakness-report");
+  if (!container) return;
+  const attempts = state.practiceAttempts || [];
+  if (!attempts.length) {
+    container.innerHTML = `<div class="card-heading"><div><p class="eyebrow">GAP ANALYSIS</p><h3>查缺补漏</h3></div><span class="muted">等待数据</span></div><p class="muted">完成一次专项题或磨耳朵主旨题后，这里会按模块平均表现、任务完成度和错误记录列出前三个补漏重点。当前不伪造分数。</p>`;
+    return;
+  }
+  const grouped = attempts.reduce((result, attempt) => {
+    result[attempt.module] ||= [];
+    result[attempt.module].push(attempt.score);
+    return result;
+  }, {});
+  const rows = Object.entries(grouped).map(([module, scores]) => {
+    const average = Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length);
+    const analysis = MODULE_ANALYSIS[module] || { title: SKILL_LABELS[module] || module, threshold: 60, action: "重新完成一组训练并记录错误原因。" };
+    return { module, average, analysis };
+  }).sort((left, right) => left.average - right.average).slice(0, 3);
+  container.innerHTML = `<div class="card-heading"><div><p class="eyebrow">GAP ANALYSIS</p><h3>查缺补漏</h3></div><span class="muted">前三项</span></div><div class="weakness-list">${rows.map(({ module, average, analysis }) => `<div class="weakness-row"><div><strong>${escapeHtml(analysis.title)}</strong><small>最近${(grouped[module] || []).length}次平均 ${average}% · 参考线 ${analysis.threshold}%</small><p>${escapeHtml(analysis.action)}</p></div><button class="text-button" data-open-module="${module === "eartraining" ? "eartraining" : module === "sentences" ? "sentences" : "practice"}">去补漏 →</button></div>`).join("")}</div><p class="standard-note">这是本站训练数据的趋势提示，不等同于正式考试成绩；每周至少复盘一次错因。</p>`;
+  $$('[data-open-module]', container).forEach((button) => button.addEventListener("click", () => navigate(button.dataset.openModule)));
 }
 
 function renderPhaseTabs() {
@@ -309,7 +373,7 @@ function renderPlan(focusToday = false) {
 }
 
 function vocabularyRecord(word) {
-  return state.vocabulary[word] || { level: 0, status: "new", lapses: 0, reviews: 0, nextReviewAt: null };
+  return state.vocabulary[word] || { level: 0, status: "new", lapses: 0, reviews: 0, correctStreak: 0, history: [], nextReviewAt: null };
 }
 
 function dueVocabularyIndexes() {
@@ -349,6 +413,218 @@ function renderVocabulary() {
   $("#reveal-word").hidden = false;
   $("#word-card").dataset.status = vocabularyRecord(entry.word).status;
   renderVocabularyStats();
+  renderMemoryProfile();
+}
+
+function renderMemoryProfile() {
+  const container = $("#memory-profile");
+  const stage = $("#memory-stage");
+  if (!container || !stage) return;
+  const entry = VOCABULARY[currentWordIndex];
+  const record = vocabularyRecord(entry.word);
+  const level = record.level || 0;
+  const intervals = [1, 3, 7, 14, 30];
+  const statusLabels = { new: "新词", forgot: "易忘", unsure: "模糊", known: "已掌握" };
+  const retention = Math.round(clamp(35 + level * 12 + (record.correctStreak || 0) * 4 - (record.lapses || 0) * 8, 0, 95));
+  const history = (record.history || []).slice(-30);
+  stage.textContent = statusLabels[record.status] || "新词";
+  container.innerHTML = `<div class="memory-grid"><div><span>当前词</span><strong>${escapeHtml(entry.word)}</strong></div><div><span>记忆级别</span><strong>${level}/${intervals.length}</strong></div><div><span>连续答对</span><strong>${record.correctStreak || 0} 次</strong></div><div><span>遗忘次数</span><strong>${record.lapses || 0} 次</strong></div></div><div class="memory-retention"><div><span>本站训练估算保持率</span><strong>${retention}%</strong></div><div class="progress-track"><span style="width:${retention}%"></span></div></div><div class="memory-history"><span>最近${history.length}次复习</span><div>${history.length ? history.map((item) => `<i class="${item.result === "known" ? "is-known" : item.result === "unsure" ? "is-unsure" : "is-forgot"}" title="${item.result === "known" ? "掌握" : item.result === "unsure" ? "模糊" : "忘记"} · ${new Date(item.reviewedAt).toLocaleDateString("zh-CN")}"></i>`).join("") : "尚无复习记录"}</div></div><p class="muted">上次复习：${record.lastReviewedAt ? new Date(record.lastReviewedAt).toLocaleString("zh-CN") : "尚未复习"}<br />下次复习：${record.nextReviewAt ? new Date(record.nextReviewAt).toLocaleString("zh-CN") : "完成一次复习后安排"}</p><small class="memory-disclaimer">间隔：${intervals.join(" / ")}天；保持率是本站根据复习行为的估算，不等同科学测量。</small>`;
+}
+
+function escapeHtml(value = "") {
+  return String(value).replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character]);
+}
+
+function learningDay() {
+  const day = getCurrentPlanDay();
+  return day < 1 ? 1 : Math.min(90, day);
+}
+
+function markCurrentTask(module, completed) {
+  const context = currentTaskContext();
+  const taskData = context.tasks.find((item) => item.module === module || item.id === module);
+  if (!taskData || context.day > 90 || taskIsComplete(context.day, taskData.id) === completed) return;
+  toggleTask(context.day, taskData, completed);
+}
+
+function sentenceProgress(day, sentenceId) {
+  const key = `day-${day}:${sentenceId}`;
+  return state.sentenceProgress?.[key] || { read: false, recall: false, apply: false, draft: "" };
+}
+
+function saveSentenceProgress(day, sentenceId, changes) {
+  const key = `day-${day}:${sentenceId}`;
+  state.sentenceProgress ||= {};
+  state.sentenceProgress[key] = { ...sentenceProgress(day, sentenceId), ...changes, updatedAt: new Date().toISOString() };
+  persist();
+}
+
+function renderSentences() {
+  const day = learningDay();
+  const sentences = dailyCoreSentences(day);
+  const progress = sentences.map((sentence) => sentenceProgress(day, sentence.id));
+  const readCount = progress.filter((item) => item.read).length;
+  const recallCount = progress.filter((item) => item.recall).length;
+  const applyCount = progress.filter((item) => item.apply).length;
+  const achieved = readCount === sentences.length && recallCount >= 2 && applyCount >= 1;
+  $("#sentence-day-label").textContent = `DAY ${day} · ${readCount}/3 已读 · ${recallCount}/2 汉译英 · ${applyCount}/1 改写`;
+  $("#sentence-list").innerHTML = sentences.map((sentence) => {
+    const item = sentenceProgress(day, sentence.id);
+    return `<article class="sentence-card ${item.read && item.recall && item.apply ? "is-complete" : ""}">
+      <div class="sentence-card-heading"><div><span class="sentence-topic">${escapeHtml(sentence.topic)}</span><h3>${escapeHtml(sentence.english)}</h3></div><button class="icon-button" data-sentence-speak="${escapeHtml(sentence.english)}" aria-label="朗读核心句">🔊</button></div>
+      <details class="sentence-detail"><summary>查看中文、句型和用途</summary><p><b>中文：</b>${escapeHtml(sentence.chinese)}</p><p><b>句型：</b><code>${escapeHtml(sentence.pattern)}</code></p><p><b>关键词：</b>${sentence.keywords.map((keyword) => `<span class="keyword-chip">${escapeHtml(keyword)}</span>`).join(" ")}</p><p><b>写作用途：</b>${escapeHtml(sentence.writingUse)}</p><p><b>口语用途：</b>${escapeHtml(sentence.speakingUse)}</p><small>${escapeHtml(sentence.note)}</small></details>
+      <div class="sentence-actions"><button class="sentence-check ${item.read ? "is-done" : ""}" data-sentence-action="read" data-sentence-id="${sentence.id}">${item.read ? "✓ 已听读并理解" : "○ 听读并理解"}</button><button class="sentence-check ${item.recall ? "is-done" : ""}" data-sentence-action="recall" data-sentence-id="${sentence.id}">${item.recall ? "✓ 已完成汉译英" : "○ 遮住英文完成汉译英"}</button><button class="sentence-check ${item.apply ? "is-done" : ""}" data-sentence-action="apply" data-sentence-id="${sentence.id}">${item.apply ? "✓ 已完成主题改写" : "○ 用于写作或口语改写"}</button></div>
+      <label class="sentence-draft"><span>我的改写（可写英文或记录口语要点）</span><textarea data-sentence-draft="${sentence.id}" placeholder="把句型迁移到自己的主题……">${escapeHtml(item.draft)}</textarea></label>
+    </article>`;
+  }).join("");
+  $$("[data-sentence-speak]").forEach((button) => button.addEventListener("click", () => pronounce(button.dataset.sentenceSpeak, 0.88)));
+  $$('[data-sentence-action]').forEach((button) => button.addEventListener("click", () => {
+    const dayProgress = sentenceProgress(day, button.dataset.sentenceId);
+    const field = button.dataset.sentenceAction;
+    saveSentenceProgress(day, button.dataset.sentenceId, { [field]: !dayProgress[field] });
+    const next = dailyCoreSentences(day).map((sentence) => sentenceProgress(day, sentence.id));
+    markCurrentTask("sentences", next.every((item) => item.read) && next.filter((item) => item.recall).length >= 2 && next.filter((item) => item.apply).length >= 1);
+    renderSentences();
+  }));
+  $$('[data-sentence-draft]').forEach((input) => input.addEventListener("input", () => saveSentenceProgress(day, input.dataset.sentenceDraft, { draft: input.value })));
+  if (achieved) markCurrentTask("sentences", true);
+}
+
+let earAudioUrl = null;
+
+function earProgress(day, unit) {
+  const key = `day-${day}:${unit.id}`;
+  return state.earTraining?.[key] || { blind: false, gistAnswered: false, gist: false, dictation: 0, shadow: false, retell: false, draft: "" };
+}
+
+function saveEarProgress(day, unit, changes) {
+  const key = `day-${day}:${unit.id}`;
+  state.earTraining ||= {};
+  state.earTraining[key] = { ...earProgress(day, unit), ...changes, updatedAt: new Date().toISOString() };
+  persist();
+}
+
+function normalizedAnswer(value) {
+  return String(value || "").toLowerCase().replace(/[’'.,!?;:"“”()\-]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function earChunkMatches(input, answer) {
+  const typed = normalizedAnswer(input);
+  const expected = normalizedAnswer(answer);
+  if (!typed || !expected) return false;
+  return typed === expected || typed.includes(expected) || expected.includes(typed) && typed.length >= Math.max(4, expected.length * 0.72);
+}
+
+function recommendedEarRate(day) {
+  return Math.min(1.2, 0.8 + Math.floor(Math.max(0, day - 1) / 7) * 0.1).toFixed(1);
+}
+
+function renderEarTranscript(unit) {
+  return unit.segments.map((segment) => `<p><b>${escapeHtml(segment.speaker)}：</b>${escapeHtml(segment.text)}</p>`).join("");
+}
+
+function speakEarTraining(unit, rate = 0.8) {
+  if (!("speechSynthesis" in window)) {
+    alert("当前浏览器不支持语音朗读；可以导入自己的授权音频训练。" );
+    return;
+  }
+  speechSynthesis.cancel();
+  const voices = speechSynthesis.getVoices().filter((voice) => /^en(-|_)/i.test(voice.lang));
+  let segmentIndex = 0;
+  const speakerVoices = new Map();
+  const next = () => {
+    if (segmentIndex >= unit.segments.length) return;
+    const segment = unit.segments[segmentIndex];
+    if (!speakerVoices.has(segment.speaker) && voices.length) speakerVoices.set(segment.speaker, voices[speakerVoices.size % voices.length]);
+    const utterance = new SpeechSynthesisUtterance(segment.text);
+    utterance.lang = "en-US";
+    utterance.rate = rate;
+    if (speakerVoices.has(segment.speaker)) utterance.voice = speakerVoices.get(segment.speaker);
+    utterance.onend = () => {
+      segmentIndex += 1;
+      next();
+    };
+    speechSynthesis.speak(utterance);
+  };
+  next();
+}
+
+function renderEarTraining() {
+  const day = learningDay();
+  const unit = EAR_TRAINING_UNITS[(day - 1 + activeEarIndex) % EAR_TRAINING_UNITS.length];
+  const progress = earProgress(day, unit);
+  const dictationTotal = unit.focusChunks.length;
+  const dictationPassed = progress.dictation >= Math.min(2, dictationTotal);
+  const completedStages = [progress.blind, progress.gist, dictationPassed, progress.shadow, progress.retell].filter(Boolean).length;
+  const recommendedRate = recommendedEarRate(day);
+  $("#ear-workspace").innerHTML = `<div class="workspace-heading"><div><p class="eyebrow">${escapeHtml(unit.type)} · ORIGINAL MATERIAL</p><h3>${escapeHtml(unit.title)}</h3><p class="muted">${escapeHtml(unit.context)}</p></div><button class="outline-button" id="next-ear-unit">换一段</button></div>
+    <div class="ear-meta"><span>训练目标：${escapeHtml(unit.target)}</span><strong>${completedStages}/5 步</strong></div>
+    <div class="ear-progress"><i style="width:${(completedStages / 5) * 100}%"></i></div>
+    <div class="audio-training ear-audio-card"><div class="audio-visual" aria-hidden="true">${Array.from({ length: 44 }, (_, index) => `<i style="height:${18 + ((index * 17) % 46)}%"></i>`).join("")}</div><div class="audio-controls"><button class="primary-button" id="play-ear">▶ ${progress.blind ? "再次盲听" : "开始盲听"}</button><button class="ghost-button" id="stop-ear">停止</button><label>速度<select id="ear-rate"><option value="0.8" ${recommendedRate === "0.8" ? "selected" : ""}>0.8×</option><option value="0.9" ${recommendedRate === "0.9" ? "selected" : ""}>0.9×</option><option value="1" ${recommendedRate === "1.0" ? "selected" : ""}>1.0×</option><option value="1.1" ${recommendedRate === "1.1" ? "selected" : ""}>1.1×</option><option value="1.2" ${recommendedRate === "1.2" ? "selected" : ""}>1.2×</option></select></label></div><small class="ear-speed-tip">阶段建议 ${recommendedRate}×：从0.8×起步，每7天提高0.1×；若主旨正确率低于70%，先保持当前速度。</small></div>
+    <div class="local-audio-row"><label class="file-button outline-button">导入本人授权音频<input type="file" id="ear-audio-file" accept="audio/*" hidden /></label><small>浏览器朗读仅用于流程训练；正式备考请使用官网或个人授权音频。</small><audio id="ear-local-audio" controls ${earAudioUrl ? "" : "hidden"} src="${earAudioUrl || ""}"></audio></div>
+    <div class="ear-stage"><div class="stage-heading"><span>01</span><div><strong>盲听与场景预测</strong><small>不看文本，先判断材料类型、人物/主题和信息目的。</small></div><button class="sentence-check ${progress.blind ? "is-done" : ""}" data-ear-stage="blind">${progress.blind ? "✓ 已完成" : "标记完成"}</button></div></div>
+    <div class="ear-stage"><div class="stage-heading"><span>02</span><div><strong>主旨与结构题</strong><small>盲听后先作答，再查看文本；不要因漏听一个词停住。</small></div></div><div class="question-block"><strong>${escapeHtml(unit.gist.question)}</strong><div class="practice-options">${unit.gist.options.map((option, index) => `<label><input type="radio" name="ear-gist" value="${index}" ${progress.gistAnswered && progress.gistAnswer === index ? "checked" : ""} ${progress.gistAnswered ? "disabled" : ""} /><span>${String.fromCharCode(65 + index)}. ${escapeHtml(option)}</span></label>`).join("")}</div>${progress.gistAnswered ? `<div class="inline-feedback ${progress.gist ? "success" : "error"}"><strong>${progress.gist ? "主旨判断正确" : `正确答案：${String.fromCharCode(65 + unit.gist.answer)}`}</strong><p>${escapeHtml(unit.gist.explanation)}</p>${progress.gist ? "" : '<button id="retry-ear-gist">重新作答</button>'}</div>` : `<button class="primary-button" id="submit-ear-gist" ${progress.blind ? "" : "disabled"}>提交主旨判断</button>`}</div></div>
+    <div class="ear-stage ${progress.gistAnswered ? "" : "is-locked"}"><div class="stage-heading"><span>03</span><div><strong>关键语块听写</strong><small>只听写3个承载意义的语块，区分词不认识和连读弱读。</small></div></div><div class="chunk-grid">${unit.focusChunks.map((chunk, index) => `<label><span>语块${index + 1}</span><input data-ear-chunk="${index}" value="${escapeHtml(progress[`chunk${index}`] || "")}" placeholder="听到后填写" ${progress.gistAnswered ? "" : "disabled"} /><small>${progress[`chunk${index}Correct`] ? "✓ 匹配" : ""}</small></label>`).join("")}</div><button class="outline-button" id="check-ear-chunks" ${progress.gistAnswered ? "" : "disabled"}>检查语块并对照文本</button><span class="save-inline" id="ear-chunk-result">${progress.dictation ? `已对${progress.dictation}/${dictationTotal}个` : ""}</span></div>
+    <div class="ear-stage ${progress.gistAnswered ? "" : "is-locked"}"><div class="stage-heading"><span>04</span><div><strong>影子跟读</strong><small>打开文本，跟在音频后复述句群；先0.8倍，再逐周提高0.1倍。</small></div><button class="sentence-check ${progress.shadow ? "is-done" : ""}" data-ear-stage="shadow" ${progress.gistAnswered ? "" : "disabled"}>${progress.shadow ? "✓ 已完成" : "跟读2轮并标记"}</button></div>${progress.gistAnswered ? `<details class="ear-transcript"><summary>查看原文与信号词</summary><div>${renderEarTranscript(unit)}</div><p><b>本段信号：</b>${unit.signals.map((signal) => `<span class="keyword-chip">${escapeHtml(signal)}</span>`).join(" ")}</p></details>` : ""}</div>
+    <div class="ear-stage ${progress.gistAnswered ? "" : "is-locked"}"><div class="stage-heading"><span>05</span><div><strong>复述检验</strong><small>不看原文，用2—3句英文回答下面提示。</small></div><button class="sentence-check ${progress.retell ? "is-done" : ""}" data-ear-stage="retell" ${progress.gistAnswered ? "" : "disabled"}>${progress.retell ? "✓ 已复述" : "完成复述并标记"}</button></div><p class="muted">${escapeHtml(unit.summaryPrompt)}</p><textarea class="ear-retell" data-ear-retell placeholder="记录你的英文复述或关键词……" ${progress.gistAnswered ? "" : "disabled"}>${escapeHtml(progress.draft)}</textarea></div>`;
+
+  $("#next-ear-unit").addEventListener("click", () => {
+    activeEarIndex = (activeEarIndex + 1) % EAR_TRAINING_UNITS.length;
+    renderEarTraining();
+  });
+  $("#play-ear").addEventListener("click", () => speakEarTraining(unit, Number($("#ear-rate").value)));
+  $("#stop-ear").addEventListener("click", () => window.speechSynthesis?.cancel());
+  $("#ear-audio-file").addEventListener("change", (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    if (earAudioUrl) URL.revokeObjectURL(earAudioUrl);
+    earAudioUrl = URL.createObjectURL(file);
+    const player = $("#ear-local-audio");
+    player.src = earAudioUrl;
+    player.hidden = false;
+  });
+  $$('[data-ear-stage]').forEach((button) => button.addEventListener("click", () => {
+    const stage = button.dataset.earStage;
+    saveEarProgress(day, unit, { [stage]: !progress[stage] });
+    const next = earProgress(day, unit);
+    const finished = next.blind && next.gist && next.dictation >= Math.min(2, dictationTotal) && next.shadow && next.retell;
+    markCurrentTask("eartraining", finished);
+    renderEarTraining();
+  }));
+  $("#submit-ear-gist")?.addEventListener("click", () => {
+    const selected = $("input[name='ear-gist']:checked");
+    if (!selected) {
+      alert("请先选择主旨答案。" );
+      return;
+    }
+    const answer = Number(selected.value);
+    saveEarProgress(day, unit, { gistAnswered: true, gistAnswer: answer, gist: answer === unit.gist.answer });
+    savePracticeAttempt("eartraining", unit.id, answer === unit.gist.answer ? 100 : 0);
+    renderEarTraining();
+  });
+  $("#retry-ear-gist")?.addEventListener("click", () => {
+    saveEarProgress(day, unit, { gistAnswered: false, gistAnswer: null, gist: false });
+    renderEarTraining();
+  });
+  $$('[data-ear-chunk]').forEach((input) => input.addEventListener("input", () => saveEarProgress(day, unit, { [`chunk${input.dataset.earChunk}`]: input.value })));
+  $("#check-ear-chunks")?.addEventListener("click", () => {
+    const matches = unit.focusChunks.map((chunk, index) => earChunkMatches($("[data-ear-chunk='" + index + "']").value, chunk));
+    const changes = { dictation: matches.filter(Boolean).length };
+    matches.forEach((matched, index) => { changes[`chunk${index}Correct`] = matched; });
+    saveEarProgress(day, unit, changes);
+    const next = earProgress(day, unit);
+    markCurrentTask("eartraining", next.blind && next.gist && next.dictation >= Math.min(2, dictationTotal) && next.shadow && next.retell);
+    $("#ear-chunk-result").textContent = `已对${changes.dictation}/${dictationTotal}个`;
+    renderEarTraining();
+  });
+  $(".ear-retell")?.addEventListener("input", (event) => saveEarProgress(day, unit, { draft: event.target.value }));
+  if (progress.blind && progress.gist && dictationPassed && progress.shadow && progress.retell) markCurrentTask("eartraining", true);
 }
 
 function pronounce(text, rate = 0.85) {
@@ -363,10 +639,10 @@ function pronounce(text, rate = 0.85) {
   speechSynthesis.speak(utterance);
 }
 
-function reviewWord(result) {
-  const entry = VOCABULARY[currentWordIndex];
+function updateVocabularyRecord(entry, result, source = "card") {
   const record = vocabularyRecord(entry.word);
   const intervals = [1, 3, 7, 14, 30];
+  const reviewedAt = new Date();
   let level = record.level || 0;
   let nextDays = 1;
   if (result === "forgot") {
@@ -382,14 +658,23 @@ function reviewWord(result) {
   }
   const nextReview = new Date();
   nextReview.setDate(nextReview.getDate() + nextDays);
-  state.vocabulary[entry.word] = {
+  const nextRecord = {
     ...record,
     level,
     status: result === "known" ? "known" : result,
     reviews: (record.reviews || 0) + 1,
-    lastReviewedAt: new Date().toISOString(),
+    correctStreak: result === "known" ? (record.correctStreak || 0) + 1 : 0,
+    lastReviewedAt: reviewedAt.toISOString(),
     nextReviewAt: nextReview.toISOString(),
+    history: [...(record.history || []), { reviewedAt: reviewedAt.toISOString(), result, source, levelBefore: record.level || 0, levelAfter: level, nextReviewAt: nextReview.toISOString() }].slice(-60),
   };
+  state.vocabulary[entry.word] = nextRecord;
+  return nextRecord;
+}
+
+function reviewWord(result) {
+  const entry = VOCABULARY[currentWordIndex];
+  updateVocabularyRecord(entry, result, "memory-card");
   state.lastStudyDate = todayInChina();
   persist();
   const due = dueVocabularyIndexes();
@@ -443,17 +728,9 @@ function answerVocabularyTest(button, word) {
   });
   if (!correct) {
     button.classList.add("is-wrong");
-    const record = vocabularyRecord(word.word);
-    state.vocabulary[word.word] = {
-      ...record,
-      level: Math.max(0, (record.level || 0) - 1),
-      status: "forgot",
-      lapses: (record.lapses || 0) + 1,
-      lastReviewedAt: new Date().toISOString(),
-      nextReviewAt: new Date().toISOString(),
-    };
-    persist();
   }
+  updateVocabularyRecord(word, correct ? "known" : "forgot", "vocabulary-test");
+  persist();
   $("#test-feedback").innerHTML = `<div class="inline-feedback ${correct ? "success" : "error"}"><strong>${correct ? "回答正确" : `正确答案：${word.meaning}`}</strong><p>${word.example}</p><button id="next-test-word">下一题 →</button></div>`;
   $("#next-test-word").addEventListener("click", () => {
     vocabularyTest.index += 1;
@@ -535,7 +812,7 @@ function renderListening() {
       return;
     }
     const correct = Number(selected.value) === item.answer;
-    $("#listening-feedback").innerHTML = `<div class="inline-feedback ${correct ? "success" : "error"}"><strong>${correct ? "回答正确" : `正确答案：${String.fromCharCode(65 + item.answer)}`}</strong><p>${item.explanation}</p><details><summary>查看原创听力文本</summary><p>${item.script}</p></details></div>`;
+    $("#listening-feedback").innerHTML = `<div class="inline-feedback ${correct ? "success" : "error"}"><strong>${correct ? "回答正确" : `正确答案：${String.fromCharCode(65 + item.answer)}`}</strong><p>${item.explanation}</p><p><b>考查能力：</b>${item.questionType || "信息定位"}</p><p><b>证据句：</b>${item.evidence}</p><details><summary>逐项查看选项分析</summary><ol>${(item.optionAnalysis || []).map((analysis) => `<li>${analysis}</li>`).join("")}</ol></details><details><summary>查看原创听力文本</summary><p>${item.script}</p></details></div>`;
     savePracticeAttempt("listening", item.id, correct ? 100 : 0);
   });
   bindNextPractice();
@@ -561,7 +838,7 @@ function renderReading() {
     }
     const correct = Number(selected.value) === item.answer;
     $("#reading-passage p").innerHTML = item.passage.replace(item.evidence, `<mark>${item.evidence}</mark>`);
-    $("#reading-feedback").innerHTML = `<div class="inline-feedback ${correct ? "success" : "error"}"><strong>${correct ? "回答正确" : `正确答案：${String.fromCharCode(65 + item.answer)}`}</strong><p>${item.explanation}</p><p><b>证据句：</b>${item.evidence}</p></div>`;
+    $("#reading-feedback").innerHTML = `<div class="inline-feedback ${correct ? "success" : "error"}"><strong>${correct ? "回答正确" : `正确答案：${String.fromCharCode(65 + item.answer)}`}</strong><p>${item.explanation}</p><p><b>题型：</b>${item.questionType || "信息定位题"}</p><p><b>证据句：</b>${item.evidence}</p><details><summary>逐项查看选项分析</summary><ol>${(item.optionAnalysis || []).map((analysis) => `<li>${analysis}</li>`).join("")}</ol></details></div>`;
     savePracticeAttempt("reading", item.id, correct ? 100 : 0);
   });
   bindNextPractice();
@@ -717,6 +994,26 @@ function renderPracticeWorkspace() {
   if (activePracticeModule === "speaking") renderSpeaking();
 }
 
+function renderLessons() {
+  const index = $("#lesson-index");
+  const reader = $("#lesson-reader");
+  if (!index || !reader) return;
+  if (!LESSON_LIBRARY[activeLessonId]) activeLessonId = LESSONS[0]?.id;
+  index.innerHTML = LESSONS.map((lesson) => `<button class="lesson-index-item ${lesson.id === activeLessonId ? "is-active" : ""}" data-lesson-id="${lesson.id}"><strong>${escapeHtml(lesson.title)}</strong><small>${escapeHtml(lesson.subtitle)}</small></button>`).join("");
+  const lesson = LESSON_LIBRARY[activeLessonId];
+  reader.innerHTML = `<div class="lesson-reader-heading"><p class="eyebrow">${escapeHtml(lesson.dayRange)}</p><h3>${escapeHtml(lesson.title)}</h3><p class="muted">${escapeHtml(lesson.subtitle)}</p></div>${lesson.sections.map((section) => `<section class="lesson-section"><h4>${escapeHtml(section.title)}</h4>${(section.paragraphs || []).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}${section.steps ? `<ol>${section.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ol>` : ""}${section.example ? `<div class="lesson-example"><strong>例题/问题</strong><p>${escapeHtml(section.example.prompt)}</p><p><b>分析：</b>${escapeHtml(section.example.analysis)}</p><p><b>结论：</b>${escapeHtml(section.example.answer)}</p></div>` : ""}${section.errors ? `<div class="lesson-errors"><strong>常见错误</strong><ul>${section.errors.map((error) => `<li>${escapeHtml(error)}</li>`).join("")}</ul></div>` : ""}${section.checklist ? `<div class="lesson-checklist"><strong>达标清单</strong>${section.checklist.map((item) => `<label><input type="checkbox" /> ${escapeHtml(item)}</label>`).join("")}</div>` : ""}</section>`).join("")}`;
+  $$('[data-lesson-id]', index).forEach((button) => button.addEventListener("click", () => {
+    activeLessonId = button.dataset.lessonId;
+    renderLessons();
+  }));
+}
+
+function renderResourceCatalog() {
+  const container = $("#resource-catalog");
+  if (!container) return;
+  container.innerHTML = `<div class="catalog-heading"><p class="eyebrow">SOURCE CATALOG</p><h3>按用途分类的资料目录</h3><p class="muted">本站原创内容与外部资料分开标注；外链内容的版权和可用性以原网站为准。</p></div>${RESOURCE_CATALOG.map((group) => `<article class="catalog-group"><div class="catalog-group-heading"><span class="resource-type ${group.tone}">${escapeHtml(group.type)}</span><div><h4>${escapeHtml(group.title)}</h4><p>${escapeHtml(group.description)}</p></div></div><div class="catalog-items">${group.items.map((item) => `<div class="catalog-item"><div><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.modules)} · ${escapeHtml(item.access)}</small><p>${escapeHtml(item.detail)}</p></div>${item.url ? `<a class="text-link" href="${item.url}" target="_blank" rel="noreferrer">打开 →</a>` : ""}</div>`).join("")}</div></article>`).join("")}`;
+}
+
 function loadNoteEditor() {
   $("#note-title").value = state.notes.title;
   $("#note-editor").innerHTML = state.notes.html;
@@ -852,6 +1149,14 @@ function initializeNavigation() {
     activePhase = day >= 1 && day <= 90 ? PLAN[day - 1].phase : "all";
     navigate("plan", { focusToday: true });
   }));
+  $$('[data-open-lesson]').forEach((item) => item.addEventListener("click", () => {
+    activeLessonId = item.dataset.openLesson;
+    navigate("lessons");
+  }));
+  $("#practice-lesson-button").addEventListener("click", () => {
+    activeLessonId = activePracticeModule === "eartraining" ? "ear-training-method" : activePracticeModule === "sentences" ? "writing-method" : `${activePracticeModule}-method`;
+    navigate("lessons");
+  });
   $("#mobile-menu").addEventListener("click", () => document.body.classList.toggle("menu-open"));
   window.addEventListener("hashchange", () => navigate(location.hash.slice(1), { instant: true }));
 }
