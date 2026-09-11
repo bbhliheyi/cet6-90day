@@ -8,12 +8,12 @@ import {
   VOCABULARY,
   buildPlan,
   dailyCoreSentences,
-} from "./content.js";
-import { RESOURCE_CATALOG } from "./resources.js";
-import { EAR_TRAINING_UNITS } from "./ear-training.js";
-import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js";
-import { getLatestRecording, saveRecording } from "./db.js";
-import { exportState, importState, loadState, resetState, saveState } from "./storage.js";
+} from "./content.js?v=0.3.2";
+import { RESOURCE_CATALOG } from "./resources.js?v=0.3.2";
+import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.3.2";
+import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.3.2";
+import { getLatestRecording, saveRecording } from "./db.js?v=0.3.2";
+import { exportState, importState, loadState, resetState, saveState } from "./storage.js?v=0.3.2";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -46,11 +46,21 @@ let deferredInstallPrompt = null;
 let workspaceTimer = null;
 let mediaRecorder = null;
 let recordingStream = null;
-let recordingChunks = [];
+let recordingContext = null;
 let noteSaveTimer = null;
 
 function persist() {
   saveState(state);
+}
+
+function recordActivity(route, label, detail = "", metadata = {}) {
+  state.lastActivity = {
+    route,
+    label,
+    detail,
+    ...metadata,
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 function todayInChina() {
@@ -155,6 +165,17 @@ function calculateStreak() {
   return streak;
 }
 
+function completedThisWeekCount() {
+  const today = chinaDateFromIso(todayInChina());
+  const weekday = today.getUTCDay() || 7;
+  const weekStart = new Date(today.getTime() - (weekday - 1) * 86_400_000);
+  const weekEnd = new Date(weekStart.getTime() + 6 * 86_400_000);
+  return PLAN.filter((item) => {
+    const date = chinaDateFromIso(item.date);
+    return date >= weekStart && date <= weekEnd && state.completedDays[item.day];
+  }).length;
+}
+
 function renderGlobalProgress() {
   const completed = completedDayCount();
   const percent = Math.round((completed / 90) * 100);
@@ -163,7 +184,73 @@ function renderGlobalProgress() {
   $("#sidebar-progress-detail").textContent = `已完成 ${completed} / 90 天`;
 }
 
+function refreshProgressViews() {
+  renderGlobalProgress();
+  renderDashboard();
+  if (currentRoute === "plan") renderPlan();
+}
+
+function moduleRouteForTask(item) {
+  if (!item) return "plan";
+  if (["vocabulary", "sentences", "eartraining", "notes"].includes(item.module)) return item.module;
+  if (["listening", "reading", "writing", "translation", "speaking"].includes(item.module)) return "practice";
+  return "plan";
+}
+
+function renderContinueLearning(context) {
+  const container = $("#continue-learning");
+  if (!container) return;
+  const incomplete = context.tasks.find((item) => !taskIsComplete(context.day, item.id));
+  const activity = state.lastActivity;
+  const target = activity || (incomplete ? { label: incomplete.title, detail: incomplete.detail, route: moduleRouteForTask(incomplete), practiceModule: incomplete.module } : null);
+  if (!target) {
+    container.hidden = true;
+    container.innerHTML = "";
+    return;
+  }
+  const route = ROUTE_TITLES[target.route] ? target.route : "plan";
+  const label = activity ? "继续上次学习" : "下一项任务";
+  const practiceModule = route === "practice" && ["listening", "reading", "writing", "translation", "speaking"].includes(target.practiceModule) ? target.practiceModule : "";
+  container.hidden = false;
+  container.innerHTML = `<span class="continue-kicker">${label}</span><strong>${escapeHtml(target.label)}</strong><small>${escapeHtml(target.detail || "从上次进度继续，不必重新选择。")}</small><button class="continue-button" data-continue-route="${escapeHtml(route)}" data-continue-module="${escapeHtml(practiceModule)}">${activity ? "继续" : "开始"} →</button>`;
+  $("[data-continue-route]", container).addEventListener("click", (event) => {
+    if (event.currentTarget.dataset.continueModule) {
+      activePracticeModule = event.currentTarget.dataset.continueModule;
+      activePracticeIndex = 0;
+    }
+    navigate(route);
+  });
+}
+
+function renderBackupReminder() {
+  const container = $("#backup-reminder");
+  if (!container) return;
+  const hasLearningData = Object.keys(state.completedTasks || {}).length
+    || Object.keys(state.vocabulary || {}).length
+    || Object.keys(state.sentenceProgress || {}).length
+    || Object.keys(state.earTraining || {}).length
+    || (state.practiceAttempts || []).length
+    || state.notes?.html;
+  const lastExportAt = state.lastExportAt ? new Date(state.lastExportAt).getTime() : 0;
+  const reminderBaseline = lastExportAt || new Date(state.createdAt).getTime();
+  const hasChanges = !lastExportAt || (state.updatedAt && new Date(state.updatedAt).getTime() > lastExportAt);
+  const ageDays = Math.floor((Date.now() - reminderBaseline) / 86_400_000);
+  if (!hasLearningData || !hasChanges || ageDays < 7) {
+    container.hidden = true;
+    container.innerHTML = "";
+    return;
+  }
+  const lastText = lastExportAt ? `${ageDays}天前` : "尚未导出过";
+  container.hidden = false;
+  container.innerHTML = `<div><p class="eyebrow">LOCAL DATA</p><strong>建议备份学习记录</strong><p>进度、笔记和错题只保存在当前浏览器；上次备份：${lastText}。</p></div><button class="outline-button" id="backup-reminder-action">立即导出</button>`;
+  $("#backup-reminder-action").addEventListener("click", () => {
+    exportState(state);
+    renderBackupReminder();
+  });
+}
+
 function navigate(route, options = {}) {
+  if (mediaRecorder?.state === "recording") stopRecording(recordingContext?.startId, recordingContext?.stopId);
   if (!ROUTE_TITLES[route]) route = "dashboard";
   currentRoute = route;
   $$("[data-view]").forEach((view) => view.classList.toggle("is-active", view.dataset.view === route));
@@ -222,7 +309,7 @@ function renderTodayTasks(context) {
 }
 
 function skillScores() {
-  const modules = ["vocabulary", "eartraining", "listening", "reading", "writing", "translation", "speaking"];
+  const modules = ["vocabulary", "sentences", "eartraining", "listening", "reading", "writing", "translation", "speaking"];
   const taskCounts = Object.values(state.completedTasks).reduce((counts, item) => {
     counts[item.module] = (counts[item.module] || 0) + 1;
     return counts;
@@ -232,10 +319,21 @@ function skillScores() {
     scores[attempt.module].push(attempt.score);
     return scores;
   }, {});
+  const sentenceRecords = Object.values(state.sentenceProgress || {});
+  const earRecords = Object.values(state.earTraining || {});
+  const progressScores = {
+    sentences: sentenceRecords.length
+      ? sentenceRecords.reduce((total, record) => total + (record.read ? 30 : 0) + (record.recall ? 40 : 0) + (record.apply ? 30 : 0), 0) / sentenceRecords.length
+      : 0,
+    eartraining: earRecords.length
+      ? earRecords.reduce((total, record) => total + ((record.blind ? 1 : 0) + (record.gist ? 1 : 0) + Math.min(1, (record.dictation || 0) / 2) + (record.shadow ? 1 : 0) + (record.retell ? 1 : 0)) * 20, 0) / earRecords.length
+      : 0,
+  };
   return modules.map((module) => {
     const scores = attemptScores[module] || [];
     const average = scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0;
-    return { module, score: Math.round(clamp(Math.min(45, (taskCounts[module] || 0) * 5) + average * 0.55, 0, 100)) };
+    const activityScore = Math.min(45, (taskCounts[module] || 0) * 5) + average * 0.55;
+    return { module, score: Math.round(clamp(Math.max(activityScore, progressScores[module] || 0), 0, 100)) };
   });
 }
 
@@ -260,7 +358,9 @@ function renderDashboard() {
     $("#today-guidance").textContent = "本周期90天计划已经结束，请导出数据并查看最新官方通知。";
   }
   renderTodayTasks(context);
+  renderContinueLearning(context);
   renderTodayStandard(context);
+  renderBackupReminder();
   renderSkillBars();
   const sevenDaysAgo = Date.now() - 7 * 86_400_000;
   const weeklyMinutes = Object.values(state.completedTasks)
@@ -330,6 +430,7 @@ function planDayProgress(planDay) {
 function renderPlan(focusToday = false) {
   $("#plan-completed").textContent = completedDayCount();
   $("#plan-streak").textContent = calculateStreak();
+  $("#plan-weekly").textContent = completedThisWeekCount();
   renderPhaseTabs();
   const currentDay = getCurrentPlanDay();
   const filtered = activePhase === "all" ? PLAN : PLAN.filter((item) => item.phase === activePhase);
@@ -449,7 +550,10 @@ function learningDay() {
 function markCurrentTask(module, completed) {
   const context = currentTaskContext();
   const taskData = context.tasks.find((item) => item.module === module || item.id === module);
-  if (!taskData || context.day > 90 || taskIsComplete(context.day, taskData.id) === completed) return;
+  if (!taskData || context.day > 90 || taskIsComplete(context.day, taskData.id) === completed) {
+    refreshProgressViews();
+    return;
+  }
   toggleTask(context.day, taskData, completed);
 }
 
@@ -462,6 +566,7 @@ function saveSentenceProgress(day, sentenceId, changes) {
   const key = `day-${day}:${sentenceId}`;
   state.sentenceProgress ||= {};
   state.sentenceProgress[key] = { ...sentenceProgress(day, sentenceId), ...changes, updatedAt: new Date().toISOString() };
+  recordActivity("sentences", "每日核心句", `DAY ${day} · ${sentenceId}`);
   persist();
 }
 
@@ -473,7 +578,7 @@ function renderSentences() {
   const recallCount = progress.filter((item) => item.recall).length;
   const applyCount = progress.filter((item) => item.apply).length;
   const achieved = readCount === sentences.length && recallCount >= 2 && applyCount >= 1;
-  $("#sentence-day-label").textContent = `DAY ${day} · ${readCount}/3 已读 · ${recallCount}/2 汉译英 · ${applyCount}/1 改写`;
+  $("#sentence-day-label").textContent = `DAY ${day} · ${readCount}/3 已读 · ${recallCount}/2 汉译英 · ${applyCount}/1 改写${achieved ? " · 今日达标" : ""}`;
   $("#sentence-list").innerHTML = sentences.map((sentence) => {
     const item = sentenceProgress(day, sentence.id);
     return `<article class="sentence-card ${item.read && item.recall && item.apply ? "is-complete" : ""}">
@@ -503,10 +608,19 @@ function earProgress(day, unit) {
   return state.earTraining?.[key] || { blind: false, gistAnswered: false, gist: false, dictation: 0, shadow: false, retell: false, draft: "" };
 }
 
+function earTrainingIsComplete(progress, dictationTotal) {
+  return progress.blind && progress.gist && progress.dictation >= Math.min(2, dictationTotal) && progress.shadow && progress.retell;
+}
+
+function syncEarTrainingTask(progress, dictationTotal) {
+  markCurrentTask("eartraining", earTrainingIsComplete(progress, dictationTotal));
+}
+
 function saveEarProgress(day, unit, changes) {
   const key = `day-${day}:${unit.id}`;
   state.earTraining ||= {};
   state.earTraining[key] = { ...earProgress(day, unit), ...changes, updatedAt: new Date().toISOString() };
+  recordActivity("eartraining", unit.title, `DAY ${day} · ${unit.type}`);
   persist();
 }
 
@@ -556,6 +670,9 @@ function speakEarTraining(unit, rate = 0.8) {
 }
 
 function renderEarTraining() {
+  if (mediaRecorder?.state === "recording" && recordingContext?.kind === "ear-shadow") {
+    stopRecording(recordingContext.startId, recordingContext.stopId);
+  }
   const day = learningDay();
   const unit = EAR_TRAINING_UNITS[(day - 1 + activeEarIndex) % EAR_TRAINING_UNITS.length];
   const progress = earProgress(day, unit);
@@ -563,6 +680,7 @@ function renderEarTraining() {
   const dictationPassed = progress.dictation >= Math.min(2, dictationTotal);
   const completedStages = [progress.blind, progress.gist, dictationPassed, progress.shadow, progress.retell].filter(Boolean).length;
   const recommendedRate = recommendedEarRate(day);
+  $("#ear-day-label").textContent = `DAY ${day} · ${completedStages}/5 步${completedStages === 5 ? " · 今日达标" : ""}`;
   $("#ear-workspace").innerHTML = `<div class="workspace-heading"><div><p class="eyebrow">${escapeHtml(unit.type)} · ORIGINAL MATERIAL</p><h3>${escapeHtml(unit.title)}</h3><p class="muted">${escapeHtml(unit.context)}</p></div><button class="outline-button" id="next-ear-unit">换一段</button></div>
     <div class="ear-meta"><span>训练目标：${escapeHtml(unit.target)}</span><strong>${completedStages}/5 步</strong></div>
     <div class="ear-progress"><i style="width:${(completedStages / 5) * 100}%"></i></div>
@@ -571,7 +689,7 @@ function renderEarTraining() {
     <div class="ear-stage"><div class="stage-heading"><span>01</span><div><strong>盲听与场景预测</strong><small>不看文本，先判断材料类型、人物/主题和信息目的。</small></div><button class="sentence-check ${progress.blind ? "is-done" : ""}" data-ear-stage="blind">${progress.blind ? "✓ 已完成" : "标记完成"}</button></div></div>
     <div class="ear-stage"><div class="stage-heading"><span>02</span><div><strong>主旨与结构题</strong><small>盲听后先作答，再查看文本；不要因漏听一个词停住。</small></div></div><div class="question-block"><strong>${escapeHtml(unit.gist.question)}</strong><div class="practice-options">${unit.gist.options.map((option, index) => `<label><input type="radio" name="ear-gist" value="${index}" ${progress.gistAnswered && progress.gistAnswer === index ? "checked" : ""} ${progress.gistAnswered ? "disabled" : ""} /><span>${String.fromCharCode(65 + index)}. ${escapeHtml(option)}</span></label>`).join("")}</div>${progress.gistAnswered ? `<div class="inline-feedback ${progress.gist ? "success" : "error"}"><strong>${progress.gist ? "主旨判断正确" : `正确答案：${String.fromCharCode(65 + unit.gist.answer)}`}</strong><p>${escapeHtml(unit.gist.explanation)}</p>${progress.gist ? "" : '<button id="retry-ear-gist">重新作答</button>'}</div>` : `<button class="primary-button" id="submit-ear-gist" ${progress.blind ? "" : "disabled"}>提交主旨判断</button>`}</div></div>
     <div class="ear-stage ${progress.gistAnswered ? "" : "is-locked"}"><div class="stage-heading"><span>03</span><div><strong>关键语块听写</strong><small>只听写3个承载意义的语块，区分词不认识和连读弱读。</small></div></div><div class="chunk-grid">${unit.focusChunks.map((chunk, index) => `<label><span>语块${index + 1}</span><input data-ear-chunk="${index}" value="${escapeHtml(progress[`chunk${index}`] || "")}" placeholder="听到后填写" ${progress.gistAnswered ? "" : "disabled"} /><small>${progress[`chunk${index}Correct`] ? "✓ 匹配" : ""}</small></label>`).join("")}</div><button class="outline-button" id="check-ear-chunks" ${progress.gistAnswered ? "" : "disabled"}>检查语块并对照文本</button><span class="save-inline" id="ear-chunk-result">${progress.dictation ? `已对${progress.dictation}/${dictationTotal}个` : ""}</span></div>
-    <div class="ear-stage ${progress.gistAnswered ? "" : "is-locked"}"><div class="stage-heading"><span>04</span><div><strong>影子跟读</strong><small>打开文本，跟在音频后复述句群；先0.8倍，再逐周提高0.1倍。</small></div><button class="sentence-check ${progress.shadow ? "is-done" : ""}" data-ear-stage="shadow" ${progress.gistAnswered ? "" : "disabled"}>${progress.shadow ? "✓ 已完成" : "跟读2轮并标记"}</button></div>${progress.gistAnswered ? `<details class="ear-transcript"><summary>查看原文与信号词</summary><div>${renderEarTranscript(unit)}</div><p><b>本段信号：</b>${unit.signals.map((signal) => `<span class="keyword-chip">${escapeHtml(signal)}</span>`).join(" ")}</p></details>` : ""}</div>
+    <div class="ear-stage ${progress.gistAnswered ? "" : "is-locked"}"><div class="stage-heading"><span>04</span><div><strong>影子跟读</strong><small>打开文本，跟在音频后复述句群；先0.8倍，再逐周提高0.1倍。</small></div><button class="sentence-check ${progress.shadow ? "is-done" : ""}" data-ear-stage="shadow" ${progress.gistAnswered ? "" : "disabled"}>${progress.shadow ? "✓ 已完成" : "跟读2轮并标记"}</button></div>${progress.gistAnswered ? `<details class="ear-transcript"><summary>查看原文与信号词</summary><div>${renderEarTranscript(unit)}</div><p><b>本段信号：</b>${unit.signals.map((signal) => `<span class="keyword-chip">${escapeHtml(signal)}</span>`).join(" ")}</p></details><div class="ear-recording-panel"><div class="recording-status"><i id="ear-recording-dot"></i><span id="ear-recording-status">录下自己的跟读，再和原音对比</span><strong id="ear-recording-duration">00:00</strong></div><div class="recording-actions"><button class="primary-button" id="start-ear-recording">开始跟读录音</button><button class="outline-button" id="stop-ear-recording" disabled>停止并保存</button></div><div id="latest-ear-recording"></div></div>` : ""}</div>
     <div class="ear-stage ${progress.gistAnswered ? "" : "is-locked"}"><div class="stage-heading"><span>05</span><div><strong>复述检验</strong><small>不看原文，用2—3句英文回答下面提示。</small></div><button class="sentence-check ${progress.retell ? "is-done" : ""}" data-ear-stage="retell" ${progress.gistAnswered ? "" : "disabled"}>${progress.retell ? "✓ 已复述" : "完成复述并标记"}</button></div><p class="muted">${escapeHtml(unit.summaryPrompt)}</p><textarea class="ear-retell" data-ear-retell placeholder="记录你的英文复述或关键词……" ${progress.gistAnswered ? "" : "disabled"}>${escapeHtml(progress.draft)}</textarea></div>`;
 
   $("#next-ear-unit").addEventListener("click", () => {
@@ -580,6 +698,19 @@ function renderEarTraining() {
   });
   $("#play-ear").addEventListener("click", () => speakEarTraining(unit, Number($("#ear-rate").value)));
   $("#stop-ear").addEventListener("click", () => window.speechSynthesis?.cancel());
+  $("#start-ear-recording")?.addEventListener("click", () => startRecording({ id: `${unit.id}-shadow` }, {
+    kind: "ear-shadow",
+    module: "eartraining",
+    recordAttempt: false,
+    startId: "start-ear-recording",
+    stopId: "stop-ear-recording",
+    dotId: "ear-recording-dot",
+    statusId: "ear-recording-status",
+    durationId: "ear-recording-duration",
+    latestId: "latest-ear-recording",
+  }));
+  $("#stop-ear-recording")?.addEventListener("click", () => stopRecording("start-ear-recording", "stop-ear-recording"));
+  renderLatestRecording("latest-ear-recording", "ear-shadow");
   $("#ear-audio-file").addEventListener("change", (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -593,8 +724,7 @@ function renderEarTraining() {
     const stage = button.dataset.earStage;
     saveEarProgress(day, unit, { [stage]: !progress[stage] });
     const next = earProgress(day, unit);
-    const finished = next.blind && next.gist && next.dictation >= Math.min(2, dictationTotal) && next.shadow && next.retell;
-    markCurrentTask("eartraining", finished);
+    syncEarTrainingTask(next, dictationTotal);
     renderEarTraining();
   }));
   $("#submit-ear-gist")?.addEventListener("click", () => {
@@ -606,10 +736,12 @@ function renderEarTraining() {
     const answer = Number(selected.value);
     saveEarProgress(day, unit, { gistAnswered: true, gistAnswer: answer, gist: answer === unit.gist.answer });
     savePracticeAttempt("eartraining", unit.id, answer === unit.gist.answer ? 100 : 0);
+    syncEarTrainingTask(earProgress(day, unit), dictationTotal);
     renderEarTraining();
   });
   $("#retry-ear-gist")?.addEventListener("click", () => {
     saveEarProgress(day, unit, { gistAnswered: false, gistAnswer: null, gist: false });
+    syncEarTrainingTask(earProgress(day, unit), dictationTotal);
     renderEarTraining();
   });
   $$('[data-ear-chunk]').forEach((input) => input.addEventListener("input", () => saveEarProgress(day, unit, { [`chunk${input.dataset.earChunk}`]: input.value })));
@@ -619,12 +751,12 @@ function renderEarTraining() {
     matches.forEach((matched, index) => { changes[`chunk${index}Correct`] = matched; });
     saveEarProgress(day, unit, changes);
     const next = earProgress(day, unit);
-    markCurrentTask("eartraining", next.blind && next.gist && next.dictation >= Math.min(2, dictationTotal) && next.shadow && next.retell);
+    syncEarTrainingTask(next, dictationTotal);
     $("#ear-chunk-result").textContent = `已对${changes.dictation}/${dictationTotal}个`;
     renderEarTraining();
   });
   $(".ear-retell")?.addEventListener("input", (event) => saveEarProgress(day, unit, { draft: event.target.value }));
-  if (progress.blind && progress.gist && dictationPassed && progress.shadow && progress.retell) markCurrentTask("eartraining", true);
+  if (earTrainingIsComplete(progress, dictationTotal)) syncEarTrainingTask(progress, dictationTotal);
 }
 
 function pronounce(text, rate = 0.85) {
@@ -675,6 +807,7 @@ function updateVocabularyRecord(entry, result, source = "card") {
 function reviewWord(result) {
   const entry = VOCABULARY[currentWordIndex];
   updateVocabularyRecord(entry, result, "memory-card");
+  recordActivity("vocabulary", `单词：${entry.word}`, entry.meaning);
   state.lastStudyDate = todayInChina();
   persist();
   const due = dueVocabularyIndexes();
@@ -741,6 +874,8 @@ function answerVocabularyTest(button, word) {
 
 function savePracticeAttempt(module, id, score) {
   state.practiceAttempts.push({ module, id, score, completedAt: new Date().toISOString() });
+  const route = module === "eartraining" ? "eartraining" : module === "vocabulary" ? "vocabulary" : "practice";
+  recordActivity(route, `${SKILL_LABELS[module] || module}训练`, id, { practiceModule: route === "practice" ? module : "" });
   state.lastStudyDate = todayInChina();
   persist();
   renderSkillBars();
@@ -902,11 +1037,11 @@ function renderTranslation() {
   bindNextPractice();
 }
 
-async function renderLatestRecording() {
-  const holder = $("#latest-recording");
+async function renderLatestRecording(holderId = "latest-recording", kind = "speaking") {
+  const holder = $("#" + holderId);
   if (!holder) return;
   try {
-    const recording = await getLatestRecording();
+    const recording = await getLatestRecording(kind);
     if (!recording) {
       holder.innerHTML = '<p class="muted">还没有本地录音。</p>';
       return;
@@ -932,61 +1067,101 @@ function renderSpeaking() {
     </div>
     <div class="rubric-box"><strong>回听自评</strong><div class="self-rating">${["流利度", "可理解度", "内容", "词汇", "语法", "互动"].map((label) => `<label>${label}<select><option>待评</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>`).join("")}</div></div>`;
   $$('[data-speaking-seconds]').forEach((button) => button.addEventListener("click", () => createCountdown($("#speaking-timer"), Number(button.dataset.speakingSeconds), () => pronounce("Time is up", 1))));
-  $("#start-recording").addEventListener("click", () => startRecording(item));
-  $("#stop-recording").addEventListener("click", stopRecording);
+  $("#start-recording").addEventListener("click", () => startRecording(item, {
+    kind: "speaking",
+    module: "speaking",
+    startId: "start-recording",
+    stopId: "stop-recording",
+    dotId: "recording-dot",
+    statusId: "recording-status",
+    durationId: "recording-duration",
+    latestId: "latest-recording",
+  }));
+  $("#stop-recording").addEventListener("click", () => stopRecording("start-recording", "stop-recording"));
   bindNextPractice();
   renderLatestRecording();
 }
 
-async function startRecording(item) {
+async function startRecording(item, options = {}) {
+  const context = {
+    kind: options.kind || "speaking",
+    module: options.module || "speaking",
+    startId: options.startId || "start-recording",
+    stopId: options.stopId || "stop-recording",
+    dotId: options.dotId || "recording-dot",
+    statusId: options.statusId || "recording-status",
+    durationId: options.durationId || "recording-duration",
+    latestId: options.latestId || "latest-recording",
+    recordAttempt: options.recordAttempt !== false,
+  };
   if (!navigator.mediaDevices?.getUserMedia || !("MediaRecorder" in window)) {
     alert("当前浏览器不支持网页录音，请改用系统录音工具并手动自评。" );
     return;
   }
   try {
     recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    recordingChunks = [];
-    mediaRecorder = new MediaRecorder(recordingStream);
-    mediaRecorder.addEventListener("dataavailable", (event) => {
-      if (event.data.size) recordingChunks.push(event.data);
+    const chunks = [];
+    const recorder = new MediaRecorder(recordingStream);
+    mediaRecorder = recorder;
+    recordingContext = context;
+    recorder.addEventListener("dataavailable", (event) => {
+      if (event.data.size) chunks.push(event.data);
     });
-    mediaRecorder.addEventListener("stop", async () => {
-      const blob = new Blob(recordingChunks, { type: mediaRecorder.mimeType || "audio/webm" });
-      await saveRecording({ id: `recording-${Date.now()}`, promptId: item.id, blob, createdAt: new Date().toISOString() });
-      recordingStream?.getTracks().forEach((track) => track.stop());
-      recordingStream = null;
-      savePracticeAttempt("speaking", item.id, 70);
-      await renderLatestRecording();
-      $("#recording-status").textContent = "录音已保存在当前设备";
-      $("#recording-dot").classList.remove("is-live");
+    recorder.addEventListener("stop", async () => {
+      try {
+        const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+        await saveRecording({ id: `recording-${Date.now()}`, kind: context.kind, promptId: item.id, blob, createdAt: new Date().toISOString() });
+        if (context.recordAttempt) savePracticeAttempt(context.module, item.id, 70);
+        else {
+          recordActivity("eartraining", "影子跟读录音", item.id);
+          persist();
+          refreshProgressViews();
+        }
+        await renderLatestRecording(context.latestId, context.kind);
+        $("#" + context.statusId)?.replaceChildren(document.createTextNode("录音已保存在当前设备"));
+      } catch (error) {
+        const status = $("#" + context.statusId);
+        if (status) status.textContent = "录音保存失败，请检查浏览器存储空间";
+        console.error(error);
+      } finally {
+        recordingStream?.getTracks().forEach((track) => track.stop());
+        recordingStream = null;
+        $("#" + context.dotId)?.classList.remove("is-live");
+        recordingContext = null;
+        if (mediaRecorder === recorder) mediaRecorder = null;
+      }
     });
-    mediaRecorder.start(250);
-    $("#start-recording").disabled = true;
-    $("#stop-recording").disabled = false;
-    $("#recording-dot").classList.add("is-live");
-    $("#recording-status").textContent = "正在录音";
+    recorder.start(250);
+    $("#" + context.startId).disabled = true;
+    $("#" + context.stopId).disabled = false;
+    $("#" + context.dotId).classList.add("is-live");
+    $("#" + context.statusId).textContent = "正在录音";
     const startedAt = Date.now();
     stopWorkspaceTimer();
     workspaceTimer = setInterval(() => {
       const seconds = Math.floor((Date.now() - startedAt) / 1000);
-      $("#recording-duration").textContent = `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
+      const duration = $("#" + context.durationId);
+      if (duration) duration.textContent = `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
     }, 500);
   } catch {
+    recordingStream?.getTracks().forEach((track) => track.stop());
+    recordingStream = null;
+    recordingContext = null;
     alert("无法使用麦克风。请检查浏览器权限，或使用系统录音工具完成训练。" );
   }
 }
 
-function stopRecording() {
+function stopRecording(startId = "start-recording", stopId = "stop-recording") {
   if (mediaRecorder?.state === "recording") mediaRecorder.stop();
   stopWorkspaceTimer();
-  $("#start-recording").disabled = false;
-  $("#stop-recording").disabled = true;
+  $("#" + startId)?.removeAttribute("disabled");
+  $("#" + stopId)?.setAttribute("disabled", "");
 }
 
 function renderPracticeWorkspace() {
   stopWorkspaceTimer();
   window.speechSynthesis?.cancel();
-  if (mediaRecorder?.state === "recording") mediaRecorder.stop();
+  if (mediaRecorder?.state === "recording") stopRecording(recordingContext?.startId, recordingContext?.stopId);
   if (activePracticeModule === "listening") renderListening();
   if (activePracticeModule === "reading") renderReading();
   if (activePracticeModule === "writing") renderWriting();
@@ -1034,6 +1209,7 @@ function scheduleNoteSave() {
       html: $("#note-editor").innerHTML,
       updatedAt: new Date().toISOString(),
     };
+    recordActivity("notes", state.notes.title, "继续整理学习笔记");
     persist();
     $("#note-save-status").textContent = "已保存";
   }, 350);
@@ -1104,7 +1280,10 @@ function initializeNotes() {
 
 function initializeDataManager() {
   $("#data-button").addEventListener("click", () => $("#data-dialog").showModal());
-  $("#export-data").addEventListener("click", () => exportState(state));
+  $("#export-data").addEventListener("click", () => {
+    exportState(state);
+    renderBackupReminder();
+  });
   $("#import-data").addEventListener("change", async (event) => {
     try {
       state = await importState(event.target.files[0]);
@@ -1135,7 +1314,18 @@ function initializePwa() {
     $("#install-button").hidden = true;
   });
   if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+    window.addEventListener("load", async () => {
+      try {
+        const registration = await navigator.serviceWorker.register(`./sw.js?v=${APP_VERSION}`);
+        await registration.update();
+      } catch {}
+    });
   }
 }
 

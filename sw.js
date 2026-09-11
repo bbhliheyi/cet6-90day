@@ -1,17 +1,17 @@
-const CACHE_NAME = "cet6-90day-v0.3.0";
+const CACHE_NAME = "cet6-90day-v0.3.2";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css",
+  "./styles.css?v=0.3.2",
   "./manifest.webmanifest",
   "./icon.svg",
-  "./src/app.js",
-  "./src/content.js",
-  "./src/ear-training.js",
-  "./src/lessons.js",
-  "./src/resources.js",
-  "./src/storage.js",
-  "./src/db.js"
+  "./src/app.js?v=0.3.2",
+  "./src/content.js?v=0.3.2",
+  "./src/ear-training.js?v=0.3.2",
+  "./src/lessons.js?v=0.3.2",
+  "./src/resources.js?v=0.3.2",
+  "./src/storage.js?v=0.3.2",
+  "./src/db.js?v=0.3.2"
 ];
 
 self.addEventListener("install", (event) => {
@@ -42,6 +42,21 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() => caches.match("./index.html")),
+    );
+    return;
+  }
+
+  if (["script", "style", "worker"].includes(event.request.destination)) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request)),
     );
     return;
   }

@@ -23,6 +23,8 @@ export const DEFAULT_STATE = Object.freeze({
   timers: {},
   studyMinutes: 0,
   lastStudyDate: null,
+  lastActivity: null,
+  lastExportAt: null,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 });
@@ -57,15 +59,19 @@ export function loadState() {
   }
 }
 
-export function saveState(state) {
-  state.updatedAt = new Date().toISOString();
+export function saveState(state, touchUpdatedAt = true) {
+  if (touchUpdatedAt) state.updatedAt = new Date().toISOString();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
 export function exportState(state) {
+  const exportedAt = new Date().toISOString();
+  state.lastExportAt = exportedAt;
+  state.updatedAt = exportedAt;
+  saveState(state, false);
   const payload = {
     app: "cet6-90day",
-    exportedAt: new Date().toISOString(),
+    exportedAt,
     state,
     note: "口语录音等大文件未包含在首版JSON备份中。",
   };

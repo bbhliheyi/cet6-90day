@@ -379,6 +379,56 @@ button {
   margin-top: 27px;
 }
 
+.continue-learning {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+  margin-top: 18px;
+  padding: 13px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.075);
+}
+
+.continue-kicker {
+  grid-row: 1 / 3;
+  color: #f4b38d;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+}
+
+.continue-learning strong,
+.continue-learning small {
+  display: block;
+  min-width: 0;
+}
+
+.continue-learning strong {
+  color: #fff;
+  font-size: 12px;
+}
+
+.continue-learning small {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.continue-button {
+  grid-row: 1 / 3;
+  grid-column: 3;
+  padding: 7px 10px;
+  border-radius: 9px;
+  color: var(--green);
+  background: #f4efe2;
+  font-size: 10px;
+  font-weight: 800;
+}
+
 .primary-button,
 .outline-button,
 .ghost-button,
@@ -587,6 +637,7 @@ button {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+  margin-top: 15px;
 }
 
 .task-card {
@@ -1626,6 +1677,28 @@ button {
   margin-top: 15px;
 }
 
+.backup-reminder {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 12px;
+  padding: 17px 20px;
+  border-color: rgba(214, 108, 56, 0.25);
+  background: rgba(247, 225, 211, 0.52);
+}
+
+.backup-reminder strong {
+  display: block;
+  font-size: 13px;
+}
+
+.backup-reminder p:not(.eyebrow) {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+
 .standard-percent {
   color: var(--orange);
   font-family: Georgia, serif;
@@ -2104,12 +2177,17 @@ mark {
   font-size: 10px;
 }
 
-.recording-panel {
+.recording-panel,
+.ear-recording-panel {
   margin-top: 15px;
   padding: 19px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: #fff;
+}
+
+.ear-recording-panel {
+  background: var(--surface-soft);
 }
 
 .recording-status {
@@ -2136,17 +2214,20 @@ mark {
   50% { opacity: 0.35; }
 }
 
-#latest-recording {
+#latest-recording,
+#latest-ear-recording {
   display: grid;
   gap: 6px;
   margin-top: 14px;
 }
 
-#latest-recording small {
+#latest-recording small,
+#latest-ear-recording small {
   color: var(--muted);
 }
 
-#latest-recording audio {
+#latest-recording audio,
+#latest-ear-recording audio {
   width: 100%;
 }
 
@@ -2586,6 +2667,9 @@ dialog::backdrop {
   .countdown-card { min-height: 150px; }
   .countdown-card strong { font-size: 59px; }
   .hero-actions { align-items: flex-start; flex-direction: column; }
+  .continue-learning { grid-template-columns: 1fr auto; }
+  .continue-kicker { grid-row: auto; grid-column: 1 / -1; }
+  .continue-button { grid-row: 2 / 4; grid-column: 2; }
   .notice-preview { padding: 21px; }
   .task-grid,
   .dashboard-lower,
@@ -2612,6 +2696,8 @@ dialog::backdrop {
   .lesson-reader { padding: 18px; }
   .standard-task,
   .weakness-row { align-items: flex-start; }
+  .backup-reminder { align-items: flex-start; flex-direction: column; }
+  .backup-reminder .outline-button { width: 100%; }
   .practice-workspace { padding: 18px; }
   .workspace-heading { align-items: flex-start; }
   .audio-controls { align-items: stretch; flex-wrap: wrap; }
@@ -2629,7 +2715,7 @@ dialog::backdrop {
     inset: auto 8px 8px;
     z-index: 45;
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(7, 1fr);
     padding: 7px;
     border: 1px solid rgba(255, 255, 255, 0.11);
     border-radius: 20px;
@@ -2646,7 +2732,7 @@ dialog::backdrop {
     border-radius: 14px;
     color: inherit;
     background: transparent;
-    font-size: 9px;
+    font-size: 8px;
   }
   .mobile-nav button span { font-size: 15px; }
   .mobile-nav button.is-active { color: #fff; background: rgba(255, 255, 255, 0.1); }

@@ -37,14 +37,19 @@ export async function saveRecording(recording) {
   });
 }
 
-export async function getLatestRecording() {
+export async function getLatestRecording(kind = null) {
   const database = await openDatabase();
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(RECORDING_STORE, "readonly");
     const request = transaction.objectStore(RECORDING_STORE).index("createdAt").openCursor(null, "prev");
     request.onsuccess = () => {
-      database.close();
-      resolve(request.result?.value || null);
+      const value = request.result?.value;
+      if (!value || !kind || value.kind === kind || (kind === "speaking" && !value.kind)) {
+        database.close();
+        resolve(value || null);
+        return;
+      }
+      request.result.continue();
     };
     request.onerror = () => {
       database.close();

@@ -1,6 +1,6 @@
 import { access, readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
-import { buildPlan, CORE_SENTENCES, VOCABULARY } from "../src/content.js";
+import { APP_VERSION, buildPlan, CORE_SENTENCES, VOCABULARY } from "../src/content.js";
 import { EAR_TRAINING_UNITS } from "../src/ear-training.js";
 
 const root = new URL("../", import.meta.url);
@@ -40,6 +40,23 @@ if (!EAR_TRAINING_UNITS.every((unit) => unit.segments.length >= 5 && unit.focusC
 const html = await readFile(new URL("index.html", root), "utf8");
 for (const id of ["view-dashboard", "view-plan", "view-vocabulary", "view-sentences", "view-eartraining", "view-practice", "view-lessons", "view-notices", "view-notes", "view-resources"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`缺少页面区域：${id}`);
+}
+for (const id of ["continue-learning", "backup-reminder", "plan-weekly", "ear-day-label"]) {
+  if (!html.includes(`id="${id}"`)) throw new Error(`缺少状态组件：${id}`);
+}
+
+const packageData = JSON.parse(await readFile(new URL("package.json", root), "utf8"));
+const serviceWorker = await readFile(new URL("sw.js", root), "utf8");
+const appSource = await readFile(new URL("src/app.js", root), "utf8");
+if (packageData.version !== APP_VERSION) throw new Error(`package.json版本${packageData.version}与应用版本${APP_VERSION}不一致`);
+for (const marker of [`styles.css?v=${APP_VERSION}`, `src/app.js?v=${APP_VERSION}`]) {
+  if (!html.includes(marker)) throw new Error(`index.html缺少版本化资源：${marker}`);
+}
+for (const marker of [`cet6-90day-v${APP_VERSION}`, `src/app.js?v=${APP_VERSION}`, `src/content.js?v=${APP_VERSION}`]) {
+  if (!serviceWorker.includes(marker)) throw new Error(`sw.js缺少版本标记：${marker}`);
+}
+for (const moduleFile of ["content", "resources", "ear-training", "lessons", "db", "storage"]) {
+  if (!appSource.includes(`./${moduleFile}.js?v=${APP_VERSION}`)) throw new Error(`src/app.js未版本化加载${moduleFile}.js`);
 }
 
 const productionFiles = ["package.json", "index.html", "src/app.js", "src/content.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/storage.js", "src/db.js"];

@@ -11,7 +11,7 @@
     <title>大学英语六级 · 90天通关训练营</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=0.3.2" />
   </head>
   <body>
     <div class="app-shell">
@@ -68,6 +68,7 @@
                 <p class="eyebrow light">2026年12月六级笔试</p>
                 <h2>把90天拆成每天<br />真正能完成的任务</h2>
                 <p id="today-guidance">先完成水平诊断与设备检查，正式训练从9月13日开始。</p>
+                <div id="continue-learning" class="continue-learning" hidden></div>
                 <div class="hero-actions">
                   <button class="primary-button light" data-jump="today">开始今日任务</button>
                   <button class="text-button light-text" data-route="plan">查看完整计划 →</button>
@@ -105,8 +106,9 @@
             </div>
             <span class="date-chip" id="today-date">9月11日 星期五</span>
           </div>
-          <div class="task-grid" id="today-tasks"></div>
           <article class="today-standard panel" id="today-standard"></article>
+          <div class="task-grid" id="today-tasks"></div>
+          <article class="backup-reminder panel" id="backup-reminder" hidden></article>
 
           <div class="dashboard-lower">
             <article class="panel">
@@ -142,6 +144,7 @@
             </div>
             <div class="plan-stats">
               <span><strong id="plan-completed">0</strong> 已完成</span>
+              <span><strong id="plan-weekly">0</strong> 本周完成</span>
               <span><strong id="plan-streak">0</strong> 连续天数</span>
             </div>
           </div>
@@ -241,7 +244,10 @@
               <h2>每日磨耳朵</h2>
               <p>使用长对话、听力篇章、报道和讲座，训练在连续语流中抓住结构与意义。</p>
             </div>
-            <button class="outline-button" data-open-lesson="ear-training-method">查看训练方法</button>
+            <div class="section-actions">
+              <span class="verified-chip" id="ear-day-label">DAY 1 · 0/5 步</span>
+              <button class="outline-button" data-open-lesson="ear-training-method">查看训练方法</button>
+            </div>
           </div>
           <article class="training-definition split-definition">
             <div><strong>不是循环听单句</strong><p>材料包含场景、人物、转折和信息推进，更接近六级听力所需的连续理解。</p></div>
@@ -429,6 +435,7 @@
       <button class="is-active" data-route="dashboard"><span>⌂</span>首页</button>
       <button data-route="plan"><span>▦</span>计划</button>
       <button data-route="vocabulary"><span>Aa</span>单词</button>
+      <button data-route="sentences"><span>句</span>核心句</button>
       <button data-route="eartraining"><span>♫</span>磨耳</button>
       <button data-route="practice"><span>▶</span>训练</button>
       <button data-route="notes"><span>✎</span>笔记</button>
@@ -459,6 +466,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="./src/app.js"></script>
+    <script type="module" src="./src/app.js?v=0.3.2"></script>
   </body>
 </html>
