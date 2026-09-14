@@ -3181,6 +3181,72 @@ dialog::backdrop {
   line-height: 1.7;
 }
 
+.catch-up-panel {
+  display: grid;
+  gap: 13px;
+  margin-top: 14px;
+  padding: 20px 22px;
+  border-color: #e7c9ad;
+  background: #fff8ee;
+}
+
+.catch-up-heading,
+.catch-up-row,
+.catch-up-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.catch-up-heading h3 {
+  margin: 0;
+  font-family: Georgia, "Noto Serif SC", serif;
+  font-size: 20px;
+}
+
+.catch-up-heading p:not(.eyebrow) {
+  max-width: 720px;
+  margin: 6px 0 0;
+  color: #795941;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.catch-up-count {
+  flex: 0 0 auto;
+  color: #a65d32;
+  font-family: Georgia, serif;
+  font-size: 34px;
+}
+
+.catch-up-list {
+  display: grid;
+  gap: 7px;
+}
+
+.catch-up-row {
+  padding: 11px 0;
+  border-top: 1px dashed #e8d2bb;
+}
+
+.catch-up-row > div {
+  display: grid;
+  gap: 4px;
+}
+
+.catch-up-row strong { font-size: 13px; }
+.catch-up-row small,
+.catch-up-more { color: #90735a; font-size: 11px; }
+.catch-up-actions { justify-content: flex-start; flex-wrap: wrap; }
+
+@media (max-width: 700px) {
+  .catch-up-heading,
+  .catch-up-row { align-items: flex-start; flex-direction: column; }
+  .catch-up-row .outline-button,
+  .catch-up-actions .primary-button { width: 100%; }
+}
+
 .reading-training-note {
   display: flex;
   gap: 8px;

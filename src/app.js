@@ -8,12 +8,12 @@ import {
   VOCABULARY,
   buildPlan,
   dailyCoreSentences,
-} from "./content.js?v=0.5.3";
-import { RESOURCE_CATALOG } from "./resources.js?v=0.5.3";
-import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.5.3";
-import { MOCK_EXAMS } from "./mock-exams.js?v=0.5.3";
-import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.5.3";
-import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.5.3";
+} from "./content.js?v=0.5.4";
+import { RESOURCE_CATALOG } from "./resources.js?v=0.5.4";
+import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.5.4";
+import { MOCK_EXAMS } from "./mock-exams.js?v=0.5.4";
+import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.5.4";
+import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.5.4";
 import {
   authenticateLocalAccount,
   clearCloudAccount,
@@ -25,7 +25,7 @@ import {
   setCloudAccount,
   setActiveAccount,
   useGuestAccount,
-} from "./accounts.js?v=0.5.3";
+} from "./accounts.js?v=0.5.4";
 import {
   deleteStateForAccount,
   exportState,
@@ -34,7 +34,7 @@ import {
   resetState,
   saveState,
   saveStateForAccount,
-} from "./storage.js?v=0.5.3";
+} from "./storage.js?v=0.5.4";
 import {
   forceDownloadCloudState,
   forceUploadCloudState,
@@ -47,7 +47,7 @@ import {
   signUpCloud,
   stageCloudMigration,
   subscribeCloudStatus,
-} from "./cloud.js?v=0.5.3";
+} from "./cloud.js?v=0.5.4";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -440,6 +440,7 @@ function renderDashboard() {
   renderTodayTasks(context);
   renderContinueLearning(context);
   renderTodayStandard(context);
+  renderCatchUpPanel();
   renderBackupReminder();
   renderSkillBars();
   const sevenDaysAgo = Date.now() - 7 * 86_400_000;
@@ -448,6 +449,44 @@ function renderDashboard() {
     .reduce((sum, item) => sum + (item.minutes || 0), 0);
   $("#weekly-duration").textContent = `${weeklyMinutes} 分钟`;
   renderWeaknessReport();
+}
+
+function overduePlanDays() {
+  const currentDay = getCurrentPlanDay();
+  if (currentDay <= 1) return [];
+  return PLAN
+    .filter((planDay) => planDay.day < Math.min(currentDay, 91))
+    .map((planDay) => ({ planDay, progress: planDayProgress(planDay) }))
+    .filter(({ progress }) => progress.completed < progress.total);
+}
+
+function renderCatchUpPanel() {
+  const container = $("#catch-up-panel");
+  if (!container) return;
+  const overdue = overduePlanDays();
+  if (!overdue.length) {
+    container.hidden = true;
+    container.innerHTML = "";
+    return;
+  }
+  const currentDay = getCurrentPlanDay();
+  container.hidden = false;
+  container.innerHTML = `<div class="catch-up-heading"><div><p class="eyebrow">CATCH-UP · 保留记录</p><h3>有${overdue.length}天计划尚未完成</h3><p>不需要重置90天计划，也不建议把两天内容压缩成一晚。今天继续DAY ${currentDay}，每天安排一小段时间补回最重要的任务。</p></div><span class="catch-up-count">${overdue.length}天</span></div><div class="catch-up-list">${overdue.slice(0, 3).map(({ planDay, progress }) => `<div class="catch-up-row"><div><strong>DAY ${planDay.day} · ${escapeHtml(planDay.title)}</strong><small>${escapeHtml(planDay.dateLabel)} · 已完成 ${progress.completed}/${progress.total} 项</small></div><button class="outline-button" data-catch-up-day="${planDay.day}">补做这一天 →</button></div>`).join("")}</div>${overdue.length > 3 ? `<small class="catch-up-more">还有${overdue.length - 3}天未完成，进入完整计划查看。</small>` : ""}<div class="catch-up-actions"><button class="primary-button" data-catch-up-today>先做今天 DAY ${currentDay}</button><button class="text-button" data-route="plan">查看全部补做计划 →</button></div>`;
+  $$('[data-catch-up-day]', container).forEach((button) => button.addEventListener("click", () => {
+    const day = Number(button.dataset.catchUpDay);
+    activeTaskDay = day;
+    activePhase = PLAN[day - 1].phase;
+    navigate("plan", { focusDay: day });
+  }));
+  $("[data-catch-up-today]", container)?.addEventListener("click", () => {
+    activeTaskDay = null;
+    activePhase = currentDay >= 1 && currentDay <= 90 ? PLAN[currentDay - 1].phase : "all";
+    navigate("plan", { focusToday: true });
+  });
+  $("[data-route='plan']", container)?.addEventListener("click", () => {
+    activeTaskDay = null;
+    navigate("plan");
+  });
 }
 
 function renderTodayStandard(context) {
