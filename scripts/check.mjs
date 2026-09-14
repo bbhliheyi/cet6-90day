@@ -63,6 +63,9 @@ for (const marker of [`cet6-90day-v${APP_VERSION}`, `src/app.js?v=${APP_VERSION}
 for (const moduleFile of ["content", "resources", "ear-training", "lessons", "db", "accounts", "storage", "cloud"]) {
   if (!appSource.includes(`./${moduleFile}.js?v=${APP_VERSION}`)) throw new Error(`src/app.js未版本化加载${moduleFile}.js`);
 }
+if (/event\.currentTarget\.disabled\s*=/.test(appSource)) {
+  throw new Error("异步按钮处理不得直接修改event.currentTarget，请先缓存元素引用");
+}
 
 const productionFiles = ["package.json", "index.html", "src/app.js", "src/content.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/storage.js", "src/accounts.js", "src/cloud.js", "src/cloud-config.js", "src/db.js"];
 const forbiddenPatterns = ["z-ai-web-dev-sdk", "apiKey:", "CHATGLM_API_KEY", "sb_secret_"];

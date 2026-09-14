@@ -1,4 +1,4 @@
-import { getActiveAccountId, getCurrentAccount } from "./accounts.js?v=0.5.0";
+import { getActiveAccountId, getCurrentAccount } from "./accounts.js?v=0.5.1";
 
 const LEGACY_STORAGE_KEY = "cet6-90day-state-v1";
 const ACCOUNT_STORAGE_PREFIX = "cet6-90day-state-v2";

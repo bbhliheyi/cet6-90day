@@ -8,11 +8,11 @@ import {
   VOCABULARY,
   buildPlan,
   dailyCoreSentences,
-} from "./content.js?v=0.5.0";
-import { RESOURCE_CATALOG } from "./resources.js?v=0.5.0";
-import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.5.0";
-import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.5.0";
-import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.5.0";
+} from "./content.js?v=0.5.1";
+import { RESOURCE_CATALOG } from "./resources.js?v=0.5.1";
+import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.5.1";
+import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.5.1";
+import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.5.1";
 import {
   authenticateLocalAccount,
   clearCloudAccount,
@@ -24,7 +24,7 @@ import {
   setCloudAccount,
   setActiveAccount,
   useGuestAccount,
-} from "./accounts.js?v=0.5.0";
+} from "./accounts.js?v=0.5.1";
 import {
   deleteStateForAccount,
   exportState,
@@ -33,7 +33,7 @@ import {
   resetState,
   saveState,
   saveStateForAccount,
-} from "./storage.js?v=0.5.0";
+} from "./storage.js?v=0.5.1";
 import {
   forceDownloadCloudState,
   forceUploadCloudState,
@@ -46,7 +46,7 @@ import {
   signUpCloud,
   stageCloudMigration,
   subscribeCloudStatus,
-} from "./cloud.js?v=0.5.0";
+} from "./cloud.js?v=0.5.1";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -1417,6 +1417,7 @@ function renderAccountManager() {
   });
 
   $("#register-cloud-account")?.addEventListener("click", async (event) => {
+    const registerButton = event.currentTarget;
     const form = $("#cloud-account-form");
     if (!form.reportValidity()) return;
     const displayName = $("#cloud-account-name").value.trim();
@@ -1425,7 +1426,7 @@ function renderAccountManager() {
       $("#cloud-account-name").focus();
       return;
     }
-    event.currentTarget.disabled = true;
+    registerButton.disabled = true;
     setAccountMessage("正在注册云账户……");
     try {
       const email = $("#cloud-account-email").value;
@@ -1437,15 +1438,16 @@ function renderAccountManager() {
         return;
       }
       setAccountMessage("注册申请已提交，请打开邮箱确认后返回网站登录。若未收到邮件，请先配置 Supabase 自定义 SMTP。");
-      event.currentTarget.disabled = false;
     } catch (error) {
       setAccountMessage(error.message, true);
-      event.currentTarget.disabled = false;
+    } finally {
+      registerButton.disabled = false;
     }
   });
 
   $("#sync-cloud-now")?.addEventListener("click", async (event) => {
-    event.currentTarget.disabled = true;
+    const syncButton = event.currentTarget;
+    syncButton.disabled = true;
     setAccountMessage("正在上传本机学习记录……");
     try {
       await forceUploadCloudState(state);
@@ -1454,13 +1456,14 @@ function renderAccountManager() {
     } catch (error) {
       setAccountMessage(error.message, true);
     } finally {
-      event.currentTarget.disabled = false;
+      syncButton.disabled = false;
     }
   });
 
   $("#download-cloud-state")?.addEventListener("click", async (event) => {
     if (!confirm("确定用云端记录覆盖当前设备上的学习记录吗？建议先导出本机备份。")) return;
-    event.currentTarget.disabled = true;
+    const downloadButton = event.currentTarget;
+    downloadButton.disabled = true;
     setAccountMessage("正在下载云端学习记录……");
     try {
       state = await forceDownloadCloudState();
@@ -1468,7 +1471,8 @@ function renderAccountManager() {
       location.reload();
     } catch (error) {
       setAccountMessage(error.message, true);
-      event.currentTarget.disabled = false;
+    } finally {
+      downloadButton.disabled = false;
     }
   });
 

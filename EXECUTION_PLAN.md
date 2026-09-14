@@ -426,6 +426,13 @@ level, reviewState, nextReviewAt, lapses, correctStreak
 - 云端同步任务、词汇、核心句、磨耳朵、练习、草稿和笔记；录音仍按账户保存在当前设备IndexedDB。
 - 初期可使用Supabase默认邮件服务和项目团队邮箱测试；对公众开放邮箱注册前配置自定义SMTP。
 
+### 6.18 云账户异步按钮兼容修复（v0.5.1）
+
+- 修复Firefox中异步注册、手动同步和云端恢复完成后`event.currentTarget`变为`null`的问题。
+- 所有异步按钮在等待网络请求前缓存元素引用，确保成功和失败状态都能安全恢复按钮。
+- 升级应用与Service Worker缓存版本，避免公网继续加载旧版账户脚本。
+- 质量检查禁止直接通过`event.currentTarget.disabled`修改异步按钮，防止同类问题回归。
+
 ## 7. 90天课程执行矩阵
 
 ### 7.1 日历映射
