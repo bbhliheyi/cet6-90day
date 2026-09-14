@@ -39,7 +39,7 @@ if (plan[0].date !== "2026-09-13" || plan[89].date !== "2026-12-11") {
   throw new Error(`计划日期错误：${plan[0].date} 至 ${plan[89].date}`);
 }
 if (VOCABULARY.length < 40) throw new Error("首批原创词汇少于40条");
-if (CORE_SENTENCES.length < 48) throw new Error("核心句素材少于48条");
+if (CORE_SENTENCES.length < 100) throw new Error("核心句素材少于100条");
 if (!CORE_SENTENCES.every((sentence) => sentence.sourceType === "original-modeled" && sentence.sourceLabel && sentence.sourceDetail)) {
   throw new Error("核心句必须完整标记原创来源");
 }
