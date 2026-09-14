@@ -69,7 +69,7 @@ const html = await readFile(new URL("index.html", root), "utf8");
 for (const id of ["view-dashboard", "view-plan", "view-vocabulary", "view-sentences", "view-eartraining", "view-practice", "view-tests", "view-lessons", "view-notices", "view-notes", "view-resources"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`缺少页面区域：${id}`);
 }
-for (const id of ["continue-learning", "backup-reminder", "plan-weekly", "ear-day-label", "account-summary", "account-dialog-content", "cloud-sync-indicator"]) {
+for (const id of ["continue-learning", "backup-reminder", "plan-weekly", "ear-day-label", "account-summary", "account-dialog-content", "cloud-sync-indicator", "selection-translator", "saved-vocabulary-list"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`缺少状态组件：${id}`);
 }
 
@@ -91,6 +91,9 @@ if (/event\.currentTarget\.disabled\s*=/.test(appSource)) {
 }
 for (const marker of ["function openTask(item, day)", "data-dashboard-open-task", "data-plan-open-task", "data-standard-open-task"]) {
   if (!appSource.includes(marker)) throw new Error(`每日任务缺少跳转能力：${marker}`);
+}
+for (const marker of ["function initializeSelectionTranslator()", "function saveCurrentSelectionToVocabulary()", "function saveCurrentSelectionToNotes()", "onlineTranslationForSelection"]) {
+  if (!appSource.includes(marker)) throw new Error(`选区翻译功能缺少：${marker}`);
 }
 
 const productionFiles = ["package.json", "index.html", "src/app.js", "src/content.js", "src/practice-bank.js", "src/mock-exams.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/storage.js", "src/accounts.js", "src/cloud.js", "src/cloud-config.js", "src/db.js"];

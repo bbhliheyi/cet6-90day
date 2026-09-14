@@ -1,4 +1,4 @@
-import { getActiveAccountId, getCurrentAccount } from "./accounts.js?v=0.5.8";
+import { getActiveAccountId, getCurrentAccount } from "./accounts.js?v=0.5.9";
 
 const LEGACY_STORAGE_KEY = "cet6-90day-state-v1";
 const ACCOUNT_STORAGE_PREFIX = "cet6-90day-state-v2";
@@ -14,6 +14,7 @@ export const DEFAULT_STATE = Object.freeze({
   completedTasks: {},
   completedDays: {},
   vocabulary: {},
+  savedVocabulary: [],
   sentenceProgress: {},
   earTraining: {},
   practiceAttempts: [],
@@ -48,6 +49,7 @@ function mergeState(candidate) {
     completedTasks: { ...base.completedTasks, ...(candidate.completedTasks || {}) },
     completedDays: { ...base.completedDays, ...(candidate.completedDays || {}) },
     vocabulary: { ...base.vocabulary, ...(candidate.vocabulary || {}) },
+    savedVocabulary: Array.isArray(candidate.savedVocabulary) ? candidate.savedVocabulary : [],
     sentenceProgress: { ...base.sentenceProgress, ...(candidate.sentenceProgress || {}) },
     earTraining: { ...base.earTraining, ...(candidate.earTraining || {}) },
     drafts: { ...base.drafts, ...(candidate.drafts || {}) },

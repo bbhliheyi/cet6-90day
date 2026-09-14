@@ -11,7 +11,7 @@
     <title>大学英语六级 · 90天通关训练营</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=0.5.8" />
+    <link rel="stylesheet" href="./styles.css?v=0.5.9" />
   </head>
   <body>
     <div class="app-shell">
@@ -222,6 +222,14 @@
               </article>
             </div>
           </div>
+          <article class="panel saved-vocabulary-panel">
+            <div class="card-heading">
+              <div><p class="eyebrow">MY WORD BANK</p><h3>我的生词本</h3></div>
+              <span class="verified-chip" id="saved-vocabulary-count">0 条</span>
+            </div>
+            <p class="muted">在任意页面选中英文，点击“翻译”后即可保存；单词、短语和句子都会按原样保留。</p>
+            <div id="saved-vocabulary-list" class="saved-vocabulary-list"></div>
+          </article>
         </section>
 
         <section class="view" id="view-sentences" data-view="sentences">
@@ -494,6 +502,8 @@
       </form>
     </dialog>
 
-    <script type="module" src="./src/app.js?v=0.5.8"></script>
+    <div id="selection-translator" class="selection-translator" hidden role="dialog" aria-label="选区翻译工具"></div>
+
+    <script type="module" src="./src/app.js?v=0.5.9"></script>
   </body>
 </html>

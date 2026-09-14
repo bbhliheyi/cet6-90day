@@ -9,12 +9,12 @@ import {
   VOCABULARY,
   buildPlan,
   dailyCoreSentences,
-} from "./content.js?v=0.5.8";
-import { RESOURCE_CATALOG } from "./resources.js?v=0.5.8";
-import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.5.8";
-import { MOCK_EXAMS, REAL_EXAM_INDEX } from "./mock-exams.js?v=0.5.8";
-import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.5.8";
-import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.5.8";
+} from "./content.js?v=0.5.9";
+import { RESOURCE_CATALOG } from "./resources.js?v=0.5.9";
+import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.5.9";
+import { MOCK_EXAMS, REAL_EXAM_INDEX } from "./mock-exams.js?v=0.5.9";
+import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.5.9";
+import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.5.9";
 import {
   authenticateLocalAccount,
   clearCloudAccount,
@@ -26,7 +26,7 @@ import {
   setCloudAccount,
   setActiveAccount,
   useGuestAccount,
-} from "./accounts.js?v=0.5.8";
+} from "./accounts.js?v=0.5.9";
 import {
   deleteStateForAccount,
   exportState,
@@ -35,7 +35,7 @@ import {
   resetState,
   saveState,
   saveStateForAccount,
-} from "./storage.js?v=0.5.8";
+} from "./storage.js?v=0.5.9";
 import {
   forceDownloadCloudState,
   forceUploadCloudState,
@@ -48,7 +48,7 @@ import {
   signUpCloud,
   stageCloudMigration,
   subscribeCloudStatus,
-} from "./cloud.js?v=0.5.8";
+} from "./cloud.js?v=0.5.9";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -91,6 +91,53 @@ let recordingStream = null;
 let recordingContext = null;
 let noteSaveTimer = null;
 let cloudInitializationError = null;
+let selectionContext = null;
+let selectionTranslationResult = null;
+let selectionRequestId = 0;
+let selectionCheckTimer = null;
+
+const LOCAL_IPA = Object.freeze({
+  substantial: "/səbˈstænʃəl/",
+  allocate: "/ˈæləkeɪt/",
+  anticipate: "/ænˈtɪsəpeɪt/",
+  coherent: "/koʊˈhɪrənt/",
+  compelling: "/kəmˈpelɪŋ/",
+  consecutive: "/kənˈsekjətɪv/",
+  controversy: "/ˈkɑːntrəvɜːrsi/",
+  diminish: "/dɪˈmɪnɪʃ/",
+  diverse: "/daɪˈvɜːrs/",
+  elaborate: "/ɪˈlæbəreɪt/",
+  encounter: "/ɪnˈkaʊntər/",
+  facilitate: "/fəˈsɪləteɪt/",
+  feasible: "/ˈfiːzəbəl/",
+  fluctuate: "/ˈflʌktʃueɪt/",
+  formulate: "/ˈfɔːrmjəleɪt/",
+  incentive: "/ɪnˈsentɪv/",
+  inevitable: "/ɪnˈevɪtəbəl/",
+  inhibit: "/ɪnˈhɪbɪt/",
+  innovative: "/ˈɪnəveɪtɪv/",
+  legitimate: "/lɪˈdʒɪtəmət/",
+  maintain: "/meɪnˈteɪn/",
+  mitigate: "/ˈmɪtɪɡeɪt/",
+  mutual: "/ˈmjuːtʃuəl/",
+  neglect: "/nɪˈɡlekt/",
+  perceive: "/pərˈsiːv/",
+  persistent: "/pərˈsɪstənt/",
+  preliminary: "/prɪˈlɪməneri/",
+  profound: "/prəˈfaʊnd/",
+  reluctant: "/rɪˈlʌktənt/",
+  reinforce: "/ˌriːɪnˈfɔːrs/",
+  resilient: "/rɪˈzɪliənt/",
+  retain: "/rɪˈteɪn/",
+  shift: "/ʃɪft/",
+  specify: "/ˈspesɪfaɪ/",
+  sustainable: "/səˈsteɪnəbəl/",
+  transform: "/trænsˈfɔːrm/",
+  underlying: "/ˌʌndərˈlaɪɪŋ/",
+  valid: "/ˈvælɪd/",
+  widespread: "/ˈwaɪdspred/",
+  yield: "/jiːld/",
+});
 
 function persist() {
   saveState(state);
@@ -301,6 +348,7 @@ function renderBackupReminder() {
   if (!container) return;
   const hasLearningData = Object.keys(state.completedTasks || {}).length
     || Object.keys(state.vocabulary || {}).length
+    || (state.savedVocabulary || []).length
     || Object.keys(state.sentenceProgress || {}).length
     || Object.keys(state.earTraining || {}).length
     || (state.practiceAttempts || []).length
@@ -326,6 +374,7 @@ function renderBackupReminder() {
 }
 
 function navigate(route, options = {}) {
+  hideSelectionTranslator(false);
   if (mediaRecorder?.state === "recording") stopRecording(recordingContext?.startId, recordingContext?.stopId);
   stopWorkspaceTimer();
   if (!ROUTE_TITLES[route]) route = "dashboard";
@@ -646,6 +695,7 @@ function renderVocabulary() {
   $("#word-card").dataset.status = vocabularyRecord(entry.word).status;
   renderVocabularyStats();
   renderMemoryProfile();
+  renderSavedVocabulary();
 }
 
 function renderMemoryProfile() {
@@ -671,6 +721,315 @@ function escapeHtml(value = "") {
     '"': "&quot;",
     "'": "&#39;",
   })[character]);
+}
+
+function normalizeSelectionText(value = "") {
+  return String(value).replace(/[\t\r\n ]+/g, " ").trim();
+}
+
+function selectionElement(node) {
+  if (!node) return null;
+  return node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+}
+
+function selectionIsAllowed(range) {
+  const element = selectionElement(range.commonAncestorContainer);
+  if (!element) return false;
+  if (element.closest("#selection-translator, input, textarea, select, [contenteditable=\"true\"]")) return false;
+  return Boolean(element.closest("body"));
+}
+
+function selectionRectangle(range) {
+  const rect = range.getBoundingClientRect();
+  if (rect.width || rect.height) return rect;
+  const clientRect = range.getClientRects()[0];
+  return clientRect || { top: 80, bottom: 100, left: 20, right: 20, width: 0, height: 0 };
+}
+
+function selectionWordLookup(text) {
+  const candidate = normalizeSelectionText(text).replace(/^[^A-Za-z]+|[^A-Za-z'’\-]+$/g, "");
+  return /^[A-Za-z]+(?:['’\-][A-Za-z]+)*$/.test(candidate) ? candidate : "";
+}
+
+function selectionIsSingleWord(text) {
+  return Boolean(selectionWordLookup(text));
+}
+
+function localTranslationForSelection(text) {
+  const normalized = normalizeSelectionText(text);
+  const lower = normalized.toLocaleLowerCase();
+  const sentence = CORE_SENTENCES.find((item) => normalizeSelectionText(item.english).toLocaleLowerCase() === lower);
+  if (sentence) {
+    return {
+      text: normalized,
+      translation: sentence.chinese,
+      ipa: "",
+      partOfSpeech: "核心句",
+      explanation: `${sentence.note} ${sentence.writingUse}`,
+      example: sentence.english,
+      source: sentence.sourceLabel,
+    };
+  }
+  const wordLookup = selectionWordLookup(normalized).toLocaleLowerCase();
+  const entry = VOCABULARY.find((item) => item.word.toLocaleLowerCase() === wordLookup);
+  if (entry) {
+    return {
+      text: normalized,
+      translation: entry.meaning,
+      ipa: entry.ipa || LOCAL_IPA[entry.word.toLocaleLowerCase()] || "",
+      partOfSpeech: entry.pos,
+      explanation: `六级词汇：结合语境掌握 ${entry.word} 的常用义和搭配。`,
+      example: entry.example,
+      source: "本站原创词汇训练库",
+    };
+  }
+  const phraseEntry = VOCABULARY.find((item) => item.collocation.toLocaleLowerCase() === lower);
+  if (phraseEntry) {
+    return {
+      text: normalized,
+      translation: phraseEntry.meaning,
+      ipa: "",
+      partOfSpeech: `${phraseEntry.pos} · 固定搭配`,
+      explanation: `这是词汇 ${phraseEntry.word} 的高频搭配，建议连同例句一起记忆。`,
+      example: phraseEntry.example,
+      source: "本站原创词汇训练库",
+    };
+  }
+  return null;
+}
+
+async function fetchJsonWithTimeout(url, timeout = 7000) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(url, { signal: controller.signal, headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json();
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+async function onlineTranslationForSelection(text) {
+  const normalized = normalizeSelectionText(text);
+  const translationPromise = fetchJsonWithTimeout(`https://api.mymemory.translated.net/get?${new URLSearchParams({ q: normalized, langpair: "en|zh-CN" })}`);
+  const dictionaryPromise = selectionIsSingleWord(normalized)
+    ? fetchJsonWithTimeout(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(selectionWordLookup(normalized))}`)
+    : Promise.resolve(null);
+  const [translationResponse, dictionaryResponse] = await Promise.allSettled([translationPromise, dictionaryPromise]);
+  const translated = translationResponse.status === "fulfilled"
+    ? translationResponse.value?.responseData?.translatedText?.trim()
+    : "";
+  const dictionaryEntry = dictionaryResponse.status === "fulfilled" ? dictionaryResponse.value?.[0] : null;
+  const meaning = dictionaryEntry?.meanings?.find((item) => item.definitions?.length);
+  const definition = meaning?.definitions?.[0];
+  if (!translated && !definition?.definition) throw new Error("在线翻译服务暂时不可用");
+  return {
+    text: normalized,
+    translation: translated || "暂未获取中文翻译",
+    ipa: dictionaryEntry?.phonetic || dictionaryEntry?.phonetics?.find((item) => item.text)?.text || "",
+    partOfSpeech: meaning?.partOfSpeech || (selectionIsSingleWord(normalized) ? "单词" : "短语/句子"),
+    explanation: definition?.definition ? `英英释义：${definition.definition}` : "建议结合上下文理解，不要只记一个中文义项。",
+    example: definition?.example || "",
+    source: selectionIsSingleWord(normalized) ? "在线词典 + 在线翻译（仅发送当前选中文本）" : "在线翻译（仅发送当前选中文本）",
+  };
+}
+
+function selectionPosition() {
+  if (!selectionContext) return;
+  const popup = $("#selection-translator");
+  if (!popup) return;
+  const rect = selectionRectangle(selectionContext.range);
+  const viewportWidth = document.documentElement.clientWidth;
+  const viewportHeight = document.documentElement.clientHeight;
+  const popupRect = popup.getBoundingClientRect();
+  const width = popupRect.width || Math.min(420, viewportWidth - 24);
+  const left = clamp(rect.left + rect.width / 2 - width / 2, 12, Math.max(12, viewportWidth - width - 12));
+  const topBelow = rect.bottom + 12;
+  const top = topBelow + popupRect.height <= viewportHeight - 10 || rect.top < popupRect.height + 24
+    ? Math.min(topBelow, viewportHeight - popupRect.height - 10)
+    : rect.top - popupRect.height - 12;
+  popup.style.left = `${Math.max(12, left)}px`;
+  popup.style.top = `${Math.max(10, top)}px`;
+}
+
+function hideSelectionTranslator(clearSelection = true) {
+  const popup = $("#selection-translator");
+  if (popup) popup.hidden = true;
+  selectionContext = null;
+  selectionTranslationResult = null;
+  selectionRequestId += 1;
+  if (clearSelection) window.getSelection()?.removeAllRanges();
+}
+
+function renderSelectionToolbar(message = "") {
+  const popup = $("#selection-translator");
+  if (!popup || !selectionContext) return;
+  popup.hidden = false;
+  popup.innerHTML = `<div class="selection-translator-head"><span>选区翻译</span><button type="button" class="selection-close" data-selection-action="close" aria-label="关闭">×</button></div><div class="selection-translator-selected">${escapeHtml(selectionContext.text)}</div><div class="selection-translator-actions"><button type="button" class="primary-button" data-selection-action="translate">翻译</button><button type="button" class="outline-button" data-selection-action="speak">朗读</button></div>${message ? `<p class="selection-translator-hint">${escapeHtml(message)}</p>` : ""}`;
+  selectionPosition();
+}
+
+function renderSelectionLoading() {
+  const popup = $("#selection-translator");
+  if (!popup || !selectionContext) return;
+  popup.hidden = false;
+  popup.innerHTML = `<div class="selection-translator-head"><span>正在翻译</span><button type="button" class="selection-close" data-selection-action="close" aria-label="关闭">×</button></div><div class="selection-translator-selected">${escapeHtml(selectionContext.text)}</div><div class="selection-translator-loading"><i></i><span>正在整理词义、音标和讲解……</span></div>`;
+  selectionPosition();
+}
+
+function selectionResultIsSaved(result = selectionTranslationResult) {
+  return Boolean(result && state.savedVocabulary?.some((item) => savedVocabularyKey(item.text) === savedVocabularyKey(result.text)));
+}
+
+function renderSelectionResult(notice = "") {
+  const popup = $("#selection-translator");
+  const result = selectionTranslationResult;
+  if (!popup || !selectionContext || !result) return;
+  const saved = selectionResultIsSaved(result);
+  popup.hidden = false;
+  popup.innerHTML = `<div class="selection-translator-head"><span>选区翻译结果</span><button type="button" class="selection-close" data-selection-action="close" aria-label="关闭">×</button></div><div class="selection-translator-selected">${escapeHtml(result.text)}</div><div class="selection-translator-result"><strong>${escapeHtml(result.translation)}</strong><dl><div><dt>音标</dt><dd>${escapeHtml(result.ipa || "句子/短语请使用朗读，不单独标注音标")}</dd></div><div><dt>词性</dt><dd>${escapeHtml(result.partOfSpeech || "—")}</dd></div></dl><p><b>讲解：</b>${escapeHtml(result.explanation || "结合上下文理解并复述。")}</p>${result.example ? `<p><b>例句：</b>${escapeHtml(result.example)}</p>` : ""}<small class="selection-translator-source">来源：${escapeHtml(result.source || "本站本地词库")}</small></div><div class="selection-translator-actions"><button type="button" class="outline-button" data-selection-action="speak">🔊 朗读</button><button type="button" class="${saved ? "saved-button" : "primary-button"}" data-selection-action="save-vocab">${saved ? "✓ 已在生词本" : "保存到生词本"}</button><button type="button" class="outline-button" data-selection-action="save-note">保存到学习笔记</button></div>${notice ? `<p class="selection-translator-success">${escapeHtml(notice)}</p>` : ""}<p class="selection-translator-privacy">在线兜底只发送当前选中的文字，不会自动上传整篇文章或教材。</p>`;
+  selectionPosition();
+}
+
+function renderSelectionError(message) {
+  const popup = $("#selection-translator");
+  if (!popup || !selectionContext) return;
+  popup.hidden = false;
+  popup.innerHTML = `<div class="selection-translator-head"><span>翻译暂不可用</span><button type="button" class="selection-close" data-selection-action="close" aria-label="关闭">×</button></div><div class="selection-translator-selected">${escapeHtml(selectionContext.text)}</div><p class="selection-translator-error">${escapeHtml(message)}</p><div class="selection-translator-actions"><button type="button" class="primary-button" data-selection-action="translate">重试翻译</button><button type="button" class="outline-button" data-selection-action="speak">朗读</button></div>`;
+  selectionPosition();
+}
+
+async function translateCurrentSelection() {
+  if (!selectionContext) return;
+  const requestId = ++selectionRequestId;
+  const local = localTranslationForSelection(selectionContext.text);
+  renderSelectionLoading();
+  try {
+    const result = local || await onlineTranslationForSelection(selectionContext.text);
+    if (requestId !== selectionRequestId || !selectionContext) return;
+    selectionTranslationResult = result;
+    renderSelectionResult();
+  } catch (error) {
+    if (requestId !== selectionRequestId || !selectionContext) return;
+    renderSelectionError(local ? "本地词库结果暂时无法展开，请稍后重试。" : `当前无可用在线翻译。${error.message || "请检查网络后重试。"}`);
+  }
+}
+
+function savedVocabularyKey(text) {
+  return normalizeSelectionText(text).toLocaleLowerCase();
+}
+
+function saveCurrentSelectionToVocabulary() {
+  if (!selectionTranslationResult) return;
+  state.savedVocabulary ||= [];
+  const result = selectionTranslationResult;
+  const key = savedVocabularyKey(result.text);
+  const now = new Date().toISOString();
+  const existing = state.savedVocabulary.find((item) => savedVocabularyKey(item.text) === key);
+  if (existing) {
+    Object.assign(existing, { ...result, updatedAt: now });
+  } else {
+    state.savedVocabulary.unshift({ id: crypto.randomUUID?.() || `saved-${Date.now()}-${Math.random().toString(16).slice(2)}`, ...result, reviewStatus: "new", createdAt: now, updatedAt: now });
+  }
+  recordActivity("vocabulary", `保存生词：${result.text}`, result.translation, { selection: result.text });
+  persist();
+  renderSavedVocabulary();
+  renderSelectionResult("已保存到我的生词本");
+}
+
+function translationNoteHtml(result) {
+  return `<aside class="translation-note"><p><strong>选区翻译</strong><span>${escapeHtml(new Date().toLocaleString("zh-CN"))}</span></p><p><b>英文：</b>${escapeHtml(result.text)}</p><p><b>翻译：</b>${escapeHtml(result.translation)}</p>${result.ipa ? `<p><b>音标：</b>${escapeHtml(result.ipa)}</p>` : ""}<p><b>词性：</b>${escapeHtml(result.partOfSpeech || "—")}</p><p><b>讲解：</b>${escapeHtml(result.explanation || "结合上下文理解并复述。")}</p>${result.example ? `<p><b>例句：</b>${escapeHtml(result.example)}</p>` : ""}<small>来源：${escapeHtml(result.source || "本站本地词库")}</small></aside>`;
+}
+
+function saveCurrentSelectionToNotes() {
+  if (!selectionTranslationResult) return;
+  const result = selectionTranslationResult;
+  state.notes ||= { title: "我的六级学习笔记", html: "", updatedAt: null };
+  state.notes.html = `${state.notes.html || ""}${state.notes.html ? "<p><br></p>" : ""}${translationNoteHtml(result)}`;
+  state.notes.updatedAt = new Date().toISOString();
+  recordActivity("notes", state.notes.title || "我的六级学习笔记", `保存选区翻译：${result.text}`);
+  persist();
+  if (currentRoute === "notes") loadNoteEditor();
+  renderSelectionResult("已保存到学习笔记");
+}
+
+function handleSelectionAction(action) {
+  if (action === "close") {
+    hideSelectionTranslator();
+    return;
+  }
+  if (action === "translate") {
+    translateCurrentSelection();
+    return;
+  }
+  if (action === "speak") {
+    if (selectionTranslationResult?.text || selectionContext?.text) pronounce(selectionTranslationResult?.text || selectionContext.text, 0.86);
+    return;
+  }
+  if (action === "save-vocab") saveCurrentSelectionToVocabulary();
+  if (action === "save-note") saveCurrentSelectionToNotes();
+}
+
+function updateSelectionFromDocument() {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount || selection.isCollapsed) {
+    if (!$("#selection-translator")?.matches(":hover")) hideSelectionTranslator(false);
+    return;
+  }
+  const text = normalizeSelectionText(selection.toString());
+  const range = selection.getRangeAt(0);
+  if (!text || text.length > 500 || !/[A-Za-z]/.test(text) || !selectionIsAllowed(range)) {
+    hideSelectionTranslator(false);
+    return;
+  }
+  const sameSelection = selectionContext?.text === text && !$("#selection-translator")?.hidden;
+  selectionContext = { text, range: range.cloneRange() };
+  if (!sameSelection) {
+    selectionTranslationResult = null;
+    renderSelectionToolbar(text.length >= 300 ? "选中文本较长，在线翻译可能需要几秒。" : "支持单词、短语和句子；点击翻译查看词义和讲解。" );
+  } else {
+    selectionPosition();
+  }
+}
+
+function initializeSelectionTranslator() {
+  const popup = $("#selection-translator");
+  if (!popup) return;
+  const schedule = () => {
+    window.clearTimeout(selectionCheckTimer);
+    selectionCheckTimer = window.setTimeout(updateSelectionFromDocument, 45);
+  };
+  document.addEventListener("selectionchange", schedule);
+  document.addEventListener("pointerup", schedule);
+  document.addEventListener("keyup", schedule);
+  popup.addEventListener("mousedown", (event) => event.preventDefault());
+  popup.addEventListener("touchstart", (event) => event.preventDefault(), { passive: false });
+  popup.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-selection-action]");
+    if (button) handleSelectionAction(button.dataset.selectionAction);
+  });
+  window.addEventListener("resize", () => selectionPosition());
+  window.addEventListener("scroll", () => selectionPosition(), true);
+}
+
+function renderSavedVocabulary() {
+  const list = $("#saved-vocabulary-list");
+  const count = $("#saved-vocabulary-count");
+  if (!list || !count) return;
+  const items = Array.isArray(state.savedVocabulary) ? state.savedVocabulary : [];
+  count.textContent = `${items.length} 条`;
+  if (!items.length) {
+    list.innerHTML = `<div class="saved-vocabulary-empty"><strong>还没有保存内容</strong><span>在核心句、磨耳朵或系统讲解中选中英文试试。</span></div>`;
+    return;
+  }
+  list.innerHTML = items.map((item) => `<article class="saved-vocabulary-item"><div class="saved-vocabulary-item-main"><div class="saved-vocabulary-item-heading"><strong>${escapeHtml(item.text)}</strong><span>${escapeHtml(item.partOfSpeech || "短语/句子")}</span></div><p>${escapeHtml(item.translation || "暂无翻译")}</p>${item.ipa ? `<small>${escapeHtml(item.ipa)}</small>` : ""}<small>${escapeHtml(item.explanation || "结合上下文复习并朗读。")}</small><em>${escapeHtml(item.source || "选区翻译")}</em></div><div class="saved-vocabulary-item-actions"><button type="button" class="outline-button" data-saved-speak="${escapeHtml(item.text)}">🔊</button><button type="button" class="icon-button saved-delete" data-delete-saved="${escapeHtml(item.id)}" aria-label="删除${escapeHtml(item.text)}">×</button></div></article>`).join("");
+  $$('[data-saved-speak]', list).forEach((button) => button.addEventListener("click", () => pronounce(button.dataset.savedSpeak, 0.86)));
+  $$('[data-delete-saved]', list).forEach((button) => button.addEventListener("click", () => {
+    state.savedVocabulary = state.savedVocabulary.filter((item) => item.id !== button.dataset.deleteSaved);
+    persist();
+    renderSavedVocabulary();
+  }));
 }
 
 function learningDay() {
@@ -1743,6 +2102,7 @@ function hasMeaningfulStudyData(snapshot = state) {
       || Object.keys(snapshot.vocabulary || {}).length
       || Object.keys(snapshot.sentenceProgress || {}).length
       || Object.keys(snapshot.earTraining || {}).length
+      || (snapshot.savedVocabulary || []).length
       || (snapshot.practiceAttempts || []).length
       || snapshot.notes?.html
       || snapshot.studyMinutes,
@@ -2137,6 +2497,7 @@ async function initialize() {
   initializeVocabulary();
   initializePractice();
   initializeNotes();
+  initializeSelectionTranslator();
   initializeDataManager();
   initializePwa();
   renderGlobalProgress();
