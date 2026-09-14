@@ -11,7 +11,7 @@
     <title>大学英语六级 · 90天通关训练营</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=0.7.0" />
+    <link rel="stylesheet" href="./styles.css?v=0.8.0" />
   </head>
   <body>
     <div class="app-shell">
@@ -28,6 +28,7 @@
           <button class="nav-item is-active" data-route="dashboard"><span>⌂</span>学习首页</button>
           <button class="nav-item" data-route="plan"><span>▦</span>90天计划</button>
           <button class="nav-item" data-route="vocabulary"><span>Aa</span>单词训练</button>
+          <button class="nav-item" data-route="review"><span>↺</span>错题复盘</button>
           <button class="nav-item" data-route="sentences"><span>句</span>核心句</button>
           <button class="nav-item" data-route="eartraining"><span>♫</span>磨耳朵</button>
           <button class="nav-item" data-route="practice"><span>▶</span>专项训练</button>
@@ -294,6 +295,22 @@
           </article>
         </section>
 
+        <section class="view" id="view-review" data-view="review">
+          <div class="section-intro compact">
+            <div>
+              <p class="eyebrow">ERROR REVIEW CENTER</p>
+              <h2>错题复盘</h2>
+              <p>把“做错”变成下一次具体训练。忘记或模糊的单词、低于80分的专项训练和完整测试会自动进入这里。</p>
+            </div>
+            <span class="verified-chip">按最近错误优先</span>
+          </div>
+          <article class="training-definition split-definition">
+            <div><strong>复盘顺序</strong><p>先看错误原因，再点击“复习此词”或“再次训练”，最后重新完成同类题确认是否改善。</p></div>
+            <div><strong>分数说明</strong><p>本站分数只用于定位个人薄弱点，不等同正式六级成绩，也不替代官方评分。</p></div>
+          </article>
+          <article class="panel review-center-panel" id="review-center"></article>
+        </section>
+
         <section class="view" id="view-sentences" data-view="sentences">
           <div class="section-intro compact">
             <div>
@@ -520,6 +537,7 @@
       <button class="is-active" data-route="dashboard"><span>⌂</span>首页</button>
       <button data-route="plan"><span>▦</span>计划</button>
       <button data-route="vocabulary"><span>Aa</span>单词</button>
+      <button data-route="review"><span>↺</span>复盘</button>
       <button data-route="sentences"><span>句</span>核心句</button>
       <button data-route="eartraining"><span>♫</span>磨耳</button>
       <button data-route="practice"><span>▶</span>训练</button>
@@ -566,6 +584,6 @@
 
     <div id="selection-translator" class="selection-translator" hidden role="dialog" aria-label="选区翻译工具"></div>
 
-    <script type="module" src="./src/app.js?v=0.7.0"></script>
+    <script type="module" src="./src/app.js?v=0.8.0"></script>
   </body>
 </html>

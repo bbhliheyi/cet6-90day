@@ -1,6 +1,6 @@
-import { SUPPLEMENTAL_PRACTICE_CONTENT } from "./practice-bank.js?v=0.7.0";
+import { SUPPLEMENTAL_PRACTICE_CONTENT } from "./practice-bank.js?v=0.8.0";
 
-export const APP_VERSION = "0.7.0";
+export const APP_VERSION = "0.8.0";
 
 export const EXAM_CONFIG = Object.freeze({
   region: "吉林 · 长春",

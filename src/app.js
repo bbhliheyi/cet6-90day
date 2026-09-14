@@ -9,14 +9,14 @@ import {
   VOCABULARY,
   buildPlan,
   dailyCoreSentences,
-} from "./content.js?v=0.7.0";
-import { RESOURCE_CATALOG } from "./resources.js?v=0.7.0";
-import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.7.0";
-import { MOCK_EXAMS, REAL_EXAM_INDEX } from "./mock-exams.js?v=0.7.0";
-import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.7.0";
-import { CET_VOCABULARY_DATA } from "./vocabulary-bank.js?v=0.7.0";
-import { VOCABULARY_ENRICHMENT_MAP, VOCABULARY_PHRASES } from "./vocabulary-enrichment.js?v=0.7.0";
-import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.7.0";
+} from "./content.js?v=0.8.0";
+import { RESOURCE_CATALOG } from "./resources.js?v=0.8.0";
+import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.8.0";
+import { MOCK_EXAMS, REAL_EXAM_INDEX } from "./mock-exams.js?v=0.8.0";
+import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.8.0";
+import { CET_VOCABULARY_DATA } from "./vocabulary-bank.js?v=0.8.0";
+import { VOCABULARY_ENRICHMENT_MAP, VOCABULARY_PHRASES } from "./vocabulary-enrichment.js?v=0.8.0";
+import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.8.0";
 import {
   authenticateLocalAccount,
   clearCloudAccount,
@@ -28,7 +28,7 @@ import {
   setCloudAccount,
   setActiveAccount,
   useGuestAccount,
-} from "./accounts.js?v=0.7.0";
+} from "./accounts.js?v=0.8.0";
 import {
   deleteStateForAccount,
   exportState,
@@ -37,7 +37,7 @@ import {
   resetState,
   saveState,
   saveStateForAccount,
-} from "./storage.js?v=0.7.0";
+} from "./storage.js?v=0.8.0";
 import {
   forceDownloadCloudState,
   forceUploadCloudState,
@@ -50,7 +50,7 @@ import {
   signUpCloud,
   stageCloudMigration,
   subscribeCloudStatus,
-} from "./cloud.js?v=0.7.0";
+} from "./cloud.js?v=0.8.0";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -60,6 +60,7 @@ const ROUTE_TITLES = Object.freeze({
   dashboard: "学习首页",
   plan: "90天计划",
   vocabulary: "单词训练",
+  review: "错题复盘",
   sentences: "每日核心句",
   eartraining: "每日磨耳朵",
   practice: "专项训练",
@@ -160,6 +161,7 @@ let currentWordIndex = 0;
 let activePhase = "all";
 let activePracticeModule = "listening";
 let activePracticeIndex = 0;
+let activeReviewFilter = "all";
 let activeLessonId = "vocabulary-method";
 let activeEarIndex = 0;
 let activeTaskDay = null;
@@ -376,7 +378,7 @@ function moduleRouteForTask(item) {
   if (!item) return "plan";
   if (["vocabulary", "sentences", "eartraining", "notes"].includes(item.module)) return item.module;
   if (["listening", "reading", "writing", "translation", "speaking"].includes(item.module)) return "practice";
-  if (item.module === "review") return "notes";
+  if (item.module === "review") return "review";
   if (["notice", "exam"].includes(item.module)) return item.id === "mock" ? "tests" : "notices";
   if (item.module === "data") return "data";
   return "plan";
@@ -481,6 +483,7 @@ function navigate(route, options = {}) {
   if (route === "dashboard") renderDashboard();
   if (route === "plan") renderPlan(options.focusDay ?? (options.focusToday ? getCurrentPlanDay() : null));
   if (route === "vocabulary") renderVocabulary();
+  if (route === "review") renderReviewCenter();
   if (route === "sentences") renderSentences();
   if (route === "eartraining") renderEarTraining();
   if (route === "practice") renderPracticeWorkspace();
@@ -671,8 +674,114 @@ function renderWeaknessReport() {
     const analysis = MODULE_ANALYSIS[module] || { title: SKILL_LABELS[module] || module, threshold: 60, action: "重新完成一组训练并记录错误原因。" };
     return { module, average, analysis };
   }).sort((left, right) => left.average - right.average).slice(0, 3);
-  container.innerHTML = `<div class="card-heading"><div><p class="eyebrow">GAP ANALYSIS</p><h3>查缺补漏</h3></div><span class="muted">前三项</span></div><div class="weakness-list">${rows.map(({ module, average, analysis }) => `<div class="weakness-row"><div><strong>${escapeHtml(analysis.title)}</strong><small>最近${(grouped[module] || []).length}次平均 ${average}% · 参考线 ${analysis.threshold}%</small><p>${escapeHtml(analysis.action)}</p></div><button class="text-button" data-open-module="${module === "eartraining" ? "eartraining" : module === "sentences" ? "sentences" : "practice"}">去补漏 →</button></div>`).join("")}</div><p class="standard-note">这是本站训练数据的趋势提示，不等同于正式考试成绩；每周至少复盘一次错因。</p>`;
+  container.innerHTML = `<div class="card-heading"><div><p class="eyebrow">GAP ANALYSIS</p><h3>查缺补漏</h3></div><div class="card-heading-actions"><span class="muted">前三项</span><button class="text-button" data-route="review">打开错题中心 →</button></div></div><div class="weakness-list">${rows.map(({ module, average, analysis }) => `<div class="weakness-row"><div><strong>${escapeHtml(analysis.title)}</strong><small>最近${(grouped[module] || []).length}次平均 ${average}% · 参考线 ${analysis.threshold}%</small><p>${escapeHtml(analysis.action)}</p></div><button class="text-button" data-open-module="${module === "eartraining" ? "eartraining" : module === "sentences" ? "sentences" : "practice"}">去补漏 →</button></div>`).join("")}</div><p class="standard-note">这是本站训练数据的趋势提示，不等同于正式考试成绩；每周至少复盘一次错因。</p>`;
   $$('[data-open-module]', container).forEach((button) => button.addEventListener("click", () => navigate(button.dataset.openModule)));
+  $(`[data-route="review"]`, container)?.addEventListener("click", () => navigate("review"));
+}
+
+function reviewVocabularyItems() {
+  return Object.entries(state.vocabulary || [])
+    .map(([word, record]) => {
+      const history = Array.isArray(record.history) ? record.history : [];
+      const lastError = [...history].reverse().find((item) => item.result !== "known");
+      const latestReview = history.at(-1);
+      if (latestReview?.result === "known" || (!lastError && !["forgot", "unsure"].includes(record.status))) return null;
+      const entry = vocabularyLibraryEntries().find((item) => item.word === word);
+      if (!entry) return null;
+      return {
+        kind: "vocabulary",
+        id: word,
+        title: word,
+        detail: `${entry.meaning} · ${lastError?.result === "forgot" ? "最近标记为忘记" : "最近标记为模糊"}`,
+        date: lastError?.reviewedAt || record.lastReviewedAt || "",
+        score: lastError?.result === "forgot" ? 0 : 50,
+        entry,
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => new Date(right.date || 0) - new Date(left.date || 0));
+}
+
+function reviewPracticeItems() {
+  const attempts = (state.practiceAttempts || []).filter((attempt) => Number(attempt.score) < 80);
+  return attempts
+    .map((attempt) => {
+      const content = PRACTICE_CONTENT[attempt.module] || [];
+      const item = content.find((candidate) => candidate.id === attempt.id);
+      const title = item?.title || (attempt.module === "mock" ? `完整测试 ${attempt.id}` : `${SKILL_LABELS[attempt.module] || attempt.module}训练`);
+      return {
+        kind: "practice",
+        id: attempt.id,
+        module: attempt.module,
+        title,
+        detail: `${attempt.questionType || (attempt.module === "mock" ? "完整测试" : "专项训练")} · 得分 ${attempt.score}%`,
+        date: attempt.completedAt || "",
+        score: Number(attempt.score),
+      };
+    })
+    .sort((left, right) => new Date(right.date || 0) - new Date(left.date || 0));
+}
+
+function renderReviewCenter() {
+  const container = $("#review-center");
+  if (!container) return;
+  const vocabularyErrors = reviewVocabularyItems();
+  const practiceErrors = reviewPracticeItems();
+  const allItems = [...vocabularyErrors, ...practiceErrors].sort((left, right) => new Date(right.date || 0) - new Date(left.date || 0));
+  const items = activeReviewFilter === "all"
+    ? allItems
+    : activeReviewFilter === "vocabulary"
+      ? vocabularyErrors
+      : practiceErrors.filter((item) => item.module === activeReviewFilter);
+  const counts = {
+    all: allItems.length,
+    vocabulary: vocabularyErrors.length,
+    listening: practiceErrors.filter((item) => item.module === "listening").length,
+    reading: practiceErrors.filter((item) => item.module === "reading").length,
+    writing: practiceErrors.filter((item) => item.module === "writing").length,
+    translation: practiceErrors.filter((item) => item.module === "translation").length,
+    speaking: practiceErrors.filter((item) => item.module === "speaking").length,
+    mock: practiceErrors.filter((item) => item.module === "mock").length,
+  };
+  const filters = [
+    ["all", "全部"],
+    ["vocabulary", "错词"],
+    ["listening", "听力"],
+    ["reading", "阅读"],
+    ["writing", "写作"],
+    ["translation", "翻译"],
+    ["speaking", "口语"],
+    ["mock", "完整测试"],
+  ];
+  container.innerHTML = `<div class="review-summary"><div><span>待复盘项目</span><strong>${allItems.length}</strong></div><div><span>错词</span><strong>${vocabularyErrors.length}</strong></div><div><span>低于80分训练</span><strong>${practiceErrors.length}</strong></div></div><div class="review-filters">${filters.map(([id, label]) => `<button class="review-filter ${activeReviewFilter === id ? "is-active" : ""}" data-review-filter="${id}">${label}<b>${counts[id]}</b></button>`).join("")}</div>${items.length ? `<div class="review-item-list">${items.slice(0, 60).map((item) => `<article class="review-item"><div><span class="review-item-type">${item.kind === "vocabulary" ? "词汇" : escapeHtml(SKILL_LABELS[item.module] || item.module)}</span><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.detail)}</p><small>${item.date ? new Date(item.date).toLocaleString("zh-CN") : "最近训练"}</small></div><button class="outline-button" data-review-kind="${item.kind}" data-review-id="${escapeHtml(item.id)}" data-review-module="${escapeHtml(item.module || "")}">${item.kind === "vocabulary" ? "复习此词" : "再次训练"} →</button></article>`).join("")}</div><p class="standard-note">按最近错误优先复盘；完成后再做一次同类训练，才能确认是否真正改善。</p>` : `<div class="review-empty"><strong>当前没有待复盘项目</strong><p>继续完成今天的训练。低于80分的专项结果和忘记/模糊的词会自动出现在这里。</p><button class="primary-button" data-route="today">开始今日任务</button></div>`}`;
+  $$('[data-review-filter]', container).forEach((button) => button.addEventListener("click", () => {
+    activeReviewFilter = button.dataset.reviewFilter;
+    renderReviewCenter();
+  }));
+  $(`[data-route="today"]`, container)?.addEventListener("click", () => navigate("dashboard"));
+  $$('[data-review-kind]', container).forEach((button) => button.addEventListener("click", () => {
+    if (button.dataset.reviewKind === "vocabulary") {
+      forcedVocabularyWord = button.dataset.reviewId;
+      vocabularyCardRevealed = false;
+      vocabularySpellingResult = null;
+      navigate("vocabulary");
+      return;
+    }
+    const module = button.dataset.reviewModule;
+    if (module === "mock") {
+      activeMockExamId = button.dataset.reviewId;
+      navigate("tests");
+      return;
+    }
+    if (module === "eartraining") {
+      activeEarIndex = Math.max(0, EAR_TRAINING_UNITS.findIndex((unit) => unit.id === button.dataset.reviewId));
+      navigate("eartraining");
+      return;
+    }
+    activePracticeModule = module;
+    activePracticeIndex = Math.max(0, (PRACTICE_CONTENT[module] || []).findIndex((item) => item.id === button.dataset.reviewId));
+    navigate("practice");
+  }));
 }
 
 function renderPhaseTabs() {
@@ -1609,6 +1718,7 @@ function reviewWord(result, source = "memory-card") {
   recordActivity("vocabulary", `单词：${entry.word}`, entry.meaning);
   state.lastStudyDate = todayInChina();
   persist();
+  if (!vocabularyQueue().length) markCurrentTask("vocabulary", true);
   forcedVocabularyWord = null;
   currentWordIndex = 0;
   vocabularyCardRevealed = false;

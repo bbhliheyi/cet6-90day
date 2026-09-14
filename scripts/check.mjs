@@ -77,10 +77,10 @@ for (const exam of MOCK_EXAMS) {
 }
 
 const html = await readFile(new URL("index.html", root), "utf8");
-for (const id of ["view-dashboard", "view-plan", "view-vocabulary", "view-sentences", "view-eartraining", "view-practice", "view-tests", "view-lessons", "view-notices", "view-notes", "view-resources"]) {
+for (const id of ["view-dashboard", "view-plan", "view-vocabulary", "view-review", "view-sentences", "view-eartraining", "view-practice", "view-tests", "view-lessons", "view-notices", "view-notes", "view-resources"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`缺少页面区域：${id}`);
 }
-for (const id of ["continue-learning", "backup-reminder", "plan-weekly", "ear-day-label", "account-summary", "account-dialog-content", "cloud-sync-indicator", "selection-translator", "saved-vocabulary-list", "vocab-book-select", "vocab-review-due", "vocab-browser-results"]) {
+for (const id of ["continue-learning", "backup-reminder", "plan-weekly", "ear-day-label", "account-summary", "account-dialog-content", "cloud-sync-indicator", "selection-translator", "saved-vocabulary-list", "vocab-book-select", "vocab-review-due", "vocab-browser-results", "review-center"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`缺少状态组件：${id}`);
 }
 

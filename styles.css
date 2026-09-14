@@ -2374,6 +2374,142 @@ button {
   grid-column: 1 / -1;
 }
 
+.card-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.review-center-panel {
+  margin-top: 15px;
+}
+
+.review-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+  margin-bottom: 16px;
+}
+
+.review-summary > div {
+  display: grid;
+  gap: 4px;
+  padding: 13px;
+  border-radius: 11px;
+  background: var(--surface-soft);
+}
+
+.review-summary span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.review-summary strong {
+  color: var(--green);
+  font-family: Georgia, serif;
+  font-size: 25px;
+}
+
+.review-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.review-filter {
+  min-height: 33px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: #fff;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.review-filter b {
+  margin-left: 4px;
+  color: var(--green-2);
+}
+
+.review-filter.is-active {
+  border-color: var(--green);
+  color: #fff;
+  background: var(--green);
+}
+
+.review-filter.is-active b {
+  color: #d9eee2;
+}
+
+.review-item-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.review-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #fff;
+}
+
+.review-item-type,
+.review-item h3,
+.review-item p,
+.review-item small {
+  display: block;
+}
+
+.review-item-type {
+  color: var(--orange);
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.review-item h3 {
+  margin: 4px 0 3px;
+  font-family: Georgia, "Noto Serif SC", serif;
+  font-size: 16px;
+}
+
+.review-item p,
+.review-item small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.review-item p {
+  margin: 0 0 3px;
+}
+
+.review-empty {
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  padding: 42px 20px;
+  text-align: center;
+}
+
+.review-empty strong {
+  font-family: Georgia, "Noto Serif SC", serif;
+  font-size: 22px;
+}
+
+.review-empty p {
+  max-width: 480px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .weakness-row p {
   margin: 5px 0 0;
 }
@@ -3883,7 +4019,10 @@ dialog::backdrop {
   .lesson-index { grid-template-columns: 1fr; }
   .lesson-reader { padding: 18px; }
   .standard-task,
-  .weakness-row { align-items: flex-start; }
+  .weakness-row,
+  .review-item { align-items: flex-start; }
+  .card-heading-actions { align-items: flex-end; flex-direction: column; gap: 5px; }
+  .review-summary { grid-template-columns: 1fr; }
   .backup-reminder { align-items: flex-start; flex-direction: column; }
   .backup-reminder .outline-button { width: 100%; }
   .practice-workspace { padding: 18px; }
@@ -3909,7 +4048,7 @@ dialog::backdrop {
     inset: auto 8px 8px;
     z-index: 45;
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(9, 1fr);
     padding: 7px;
     border: 1px solid rgba(255, 255, 255, 0.11);
     border-radius: 20px;
@@ -4549,7 +4688,7 @@ dialog::backdrop {
   .real-exam-item { flex-direction: column; }
   .real-exam-links { justify-content: flex-start; min-width: 0; }
   .cloze-passage select, .cloze-text select { min-width: 94px; }
-  .mobile-nav { grid-template-columns: repeat(8, 1fr); }
+  .mobile-nav { grid-template-columns: repeat(9, 1fr); }
 }
 
 @media (max-width: 420px) {
