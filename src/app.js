@@ -1,5 +1,6 @@
 import {
   APP_VERSION,
+  CORE_SENTENCES,
   EXAM_CONFIG,
   PHASES,
   PRACTICE_CONTENT,
@@ -8,12 +9,12 @@ import {
   VOCABULARY,
   buildPlan,
   dailyCoreSentences,
-} from "./content.js?v=0.5.6";
-import { RESOURCE_CATALOG } from "./resources.js?v=0.5.6";
-import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.5.6";
-import { MOCK_EXAMS, REAL_EXAM_INDEX } from "./mock-exams.js?v=0.5.6";
-import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.5.6";
-import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.5.6";
+} from "./content.js?v=0.5.7";
+import { RESOURCE_CATALOG } from "./resources.js?v=0.5.7";
+import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.5.7";
+import { MOCK_EXAMS, REAL_EXAM_INDEX } from "./mock-exams.js?v=0.5.7";
+import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.5.7";
+import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.5.7";
 import {
   authenticateLocalAccount,
   clearCloudAccount,
@@ -25,7 +26,7 @@ import {
   setCloudAccount,
   setActiveAccount,
   useGuestAccount,
-} from "./accounts.js?v=0.5.6";
+} from "./accounts.js?v=0.5.7";
 import {
   deleteStateForAccount,
   exportState,
@@ -34,7 +35,7 @@ import {
   resetState,
   saveState,
   saveStateForAccount,
-} from "./storage.js?v=0.5.6";
+} from "./storage.js?v=0.5.7";
 import {
   forceDownloadCloudState,
   forceUploadCloudState,
@@ -47,7 +48,7 @@ import {
   signUpCloud,
   stageCloudMigration,
   subscribeCloudStatus,
-} from "./cloud.js?v=0.5.6";
+} from "./cloud.js?v=0.5.7";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -709,12 +710,12 @@ function renderSentences() {
   const recallCount = progress.filter((item) => item.recall).length;
   const applyCount = progress.filter((item) => item.apply).length;
   const achieved = readCount === sentences.length && recallCount >= 2 && applyCount >= 1;
-  $("#sentence-day-label").textContent = `DAY ${day} · ${readCount}/3 已读 · ${recallCount}/2 汉译英 · ${applyCount}/1 改写${achieved ? " · 今日达标" : ""}`;
+  $("#sentence-day-label").textContent = `DAY ${day} · 本日3句 · 句库${CORE_SENTENCES.length}句 · ${readCount}/3 已读 · ${recallCount}/2 汉译英 · ${applyCount}/1 改写${achieved ? " · 今日达标" : ""}`;
   $("#sentence-list").innerHTML = sentences.map((sentence) => {
     const item = sentenceProgress(day, sentence.id);
     return `<article class="sentence-card ${item.read && item.recall && item.apply ? "is-complete" : ""}">
-      <div class="sentence-card-heading"><div><span class="sentence-topic">${escapeHtml(sentence.topic)}</span><h3>${escapeHtml(sentence.english)}</h3></div><button class="icon-button" data-sentence-speak="${escapeHtml(sentence.english)}" aria-label="朗读核心句">🔊</button></div>
-      <details class="sentence-detail"><summary>查看中文、句型和用途</summary><p><b>中文：</b>${escapeHtml(sentence.chinese)}</p><p><b>句型：</b><code>${escapeHtml(sentence.pattern)}</code></p><p><b>关键词：</b>${sentence.keywords.map((keyword) => `<span class="keyword-chip">${escapeHtml(keyword)}</span>`).join(" ")}</p><p><b>写作用途：</b>${escapeHtml(sentence.writingUse)}</p><p><b>口语用途：</b>${escapeHtml(sentence.speakingUse)}</p><small>${escapeHtml(sentence.note)}</small></details>
+      <div class="sentence-card-heading"><div><span class="sentence-topic">${escapeHtml(sentence.topic)}</span><span class="sentence-source">${escapeHtml(sentence.sourceLabel || "本站原创素材")}</span><h3>${escapeHtml(sentence.english)}</h3></div><button class="icon-button" data-sentence-speak="${escapeHtml(sentence.english)}" aria-label="朗读核心句">🔊</button></div>
+      <details class="sentence-detail"><summary>查看中文、句型和用途</summary><p><b>中文：</b>${escapeHtml(sentence.chinese)}</p><p><b>句型：</b><code>${escapeHtml(sentence.pattern)}</code></p><p><b>关键词：</b>${sentence.keywords.map((keyword) => `<span class="keyword-chip">${escapeHtml(keyword)}</span>`).join(" ")}</p><p><b>写作用途：</b>${escapeHtml(sentence.writingUse)}</p><p><b>口语用途：</b>${escapeHtml(sentence.speakingUse)}</p><p><b>来源说明：</b>${escapeHtml(sentence.sourceDetail || "本站原创素材")}</p><small>${escapeHtml(sentence.note)}</small></details>
       <div class="sentence-actions"><button class="sentence-check ${item.read ? "is-done" : ""}" data-sentence-action="read" data-sentence-id="${sentence.id}">${item.read ? "✓ 已听读并理解" : "○ 听读并理解"}</button><button class="sentence-check ${item.recall ? "is-done" : ""}" data-sentence-action="recall" data-sentence-id="${sentence.id}">${item.recall ? "✓ 已完成汉译英" : "○ 遮住英文完成汉译英"}</button><button class="sentence-check ${item.apply ? "is-done" : ""}" data-sentence-action="apply" data-sentence-id="${sentence.id}">${item.apply ? "✓ 已完成主题改写" : "○ 用于写作或口语改写"}</button></div>
       <label class="sentence-draft"><span>我的改写（可写英文或记录口语要点）</span><textarea data-sentence-draft="${sentence.id}" placeholder="把句型迁移到自己的主题……">${escapeHtml(item.draft)}</textarea></label>
     </article>`;
@@ -811,8 +812,8 @@ function renderEarTraining() {
   const dictationPassed = progress.dictation >= Math.min(2, dictationTotal);
   const completedStages = [progress.blind, progress.gist, dictationPassed, progress.shadow, progress.retell].filter(Boolean).length;
   const recommendedRate = recommendedEarRate(day);
-  $("#ear-day-label").textContent = `DAY ${day} · ${completedStages}/5 步${completedStages === 5 ? " · 今日达标" : ""}`;
-  $("#ear-workspace").innerHTML = `<div class="workspace-heading"><div><p class="eyebrow">${escapeHtml(unit.type)} · ORIGINAL MATERIAL</p><h3>${escapeHtml(unit.title)}</h3><p class="muted">${escapeHtml(unit.context)}</p></div><button class="outline-button" id="next-ear-unit">换一段</button></div>
+  $("#ear-day-label").textContent = `DAY ${day} · ${completedStages}/5 步 · 共${EAR_TRAINING_UNITS.length}段${completedStages === 5 ? " · 今日达标" : ""}`;
+  $("#ear-workspace").innerHTML = `<div class="workspace-heading"><div><p class="eyebrow">${escapeHtml(unit.type)} · ${escapeHtml(unit.sourceLabel || "本站原创素材")}</p><h3>${escapeHtml(unit.title)}</h3><p class="muted">${escapeHtml(unit.context)}</p><small class="ear-source-note">${escapeHtml(unit.sourceDetail || "本站原创素材")}</small></div><button class="outline-button" id="next-ear-unit">换一段</button></div>
     <div class="ear-meta"><span>训练目标：${escapeHtml(unit.target)}</span><strong>${completedStages}/5 步</strong></div>
     <div class="ear-progress"><i style="width:${(completedStages / 5) * 100}%"></i></div>
     <div class="audio-training ear-audio-card"><div class="audio-visual" aria-hidden="true">${Array.from({ length: 44 }, (_, index) => `<i style="height:${18 + ((index * 17) % 46)}%"></i>`).join("")}</div><div class="audio-controls"><button class="primary-button" id="play-ear">▶ ${progress.blind ? "再次盲听" : "开始盲听"}</button><button class="ghost-button" id="stop-ear">停止</button><label>速度<select id="ear-rate"><option value="0.8" ${recommendedRate === "0.8" ? "selected" : ""}>0.8×</option><option value="0.9" ${recommendedRate === "0.9" ? "selected" : ""}>0.9×</option><option value="1" ${recommendedRate === "1.0" ? "selected" : ""}>1.0×</option><option value="1.1" ${recommendedRate === "1.1" ? "selected" : ""}>1.1×</option><option value="1.2" ${recommendedRate === "1.2" ? "selected" : ""}>1.2×</option></select></label></div><small class="ear-speed-tip">阶段建议 ${recommendedRate}×：从0.8×起步，每7天提高0.1×；若主旨正确率低于70%，先保持当前速度。</small></div>

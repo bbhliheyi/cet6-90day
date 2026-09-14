@@ -1,6 +1,6 @@
-import { SUPPLEMENTAL_PRACTICE_CONTENT } from "./practice-bank.js?v=0.5.6";
+import { SUPPLEMENTAL_PRACTICE_CONTENT } from "./practice-bank.js?v=0.5.7";
 
-export const APP_VERSION = "0.5.6";
+export const APP_VERSION = "0.5.7";
 
 export const EXAM_CONFIG = Object.freeze({
   region: "吉林 · 长春",
@@ -438,6 +438,26 @@ export const SKILL_LABELS = Object.freeze({
   data: "数据",
 });
 
+const coreSentence = (id, topic, english, chinese, pattern, keywords, writingUse, speakingUse, note) => ({
+  id,
+  topic,
+  english,
+  chinese,
+  pattern,
+  keywords,
+  writingUse,
+  speakingUse,
+  note,
+});
+
+const CORE_SENTENCE_SOURCE = Object.freeze({
+  sourceType: "original-modeled",
+  sourceLabel: "本站原创 · 按CET-6能力点编写",
+  sourceDetail: "主题、句式和表达为本站独立制作，用于模拟六级写作、翻译和口语迁移；不复制官方真题或商业题库。",
+});
+
+const normalizeCoreSentence = (sentence) => Object.freeze({ ...CORE_SENTENCE_SOURCE, ...sentence });
+
 export const CORE_SENTENCES = Object.freeze([
   {
     id: "sentence-01",
@@ -571,7 +591,43 @@ export const CORE_SENTENCES = Object.freeze([
     speakingUse: "可用于回答大学生如何参与社区。",
     note: "not simply ... also ... 形成对照，适合避免观点单薄。",
   },
-]);
+  coreSentence("sentence-13", "教育方法", "A well-designed course should not only deliver information but also teach students how to ask better questions.", "一门设计合理的课程不仅应该传递信息，还应该教会学生如何提出更好的问题。", "not only ... but also ...", ["well-designed course", "deliver information", "ask better questions"], "适合教育改革、课堂质量和人才培养主题。", "可用于说明理想课程应具备什么特点。", "not only...but also连接两个并列动词，主语共用 should。"),
+  coreSentence("sentence-14", "反馈与成长", "When feedback is specific and timely, students are more likely to turn mistakes into practical improvements.", "当反馈具体且及时，学生更有可能把错误转化为切实的改进。", "be likely to turn A into B", ["specific and timely", "turn mistakes into", "practical improvements"], "适合教育评价、学习方法和个人成长主题。", "可用于回答如何有效利用老师或同伴反馈。", "be likely to 后接动词原形；turn A into B表示把A转化为B。"),
+  coreSentence("sentence-15", "教育公平", "Universities can narrow the opportunity gap by providing flexible support instead of assuming that every learner starts from the same point.", "大学可以通过提供灵活支持来缩小机会差距，而不是假设每个学习者都从同一起点出发。", "by doing ... instead of doing ...", ["narrow the opportunity gap", "flexible support", "start from the same point"], "适合教育公平、公共资源和包容性教育主题。", "可用于讨论学校如何帮助不同背景的学生。", "by引出方式；instead of后接动名词，表达对比措施。"),
+  coreSentence("sentence-16", "考试评价", "The purpose of assessment is not merely to rank students but to show them what they should improve next.", "评价的目的不仅是给学生排名，还应该让他们知道下一步需要改进什么。", "The purpose of ... is not merely ... but ...", ["purpose of assessment", "rank students", "improve next"], "适合考试评价、教育目标和反馈机制主题。", "可用于说明考试成绩之外的评价价值。", "not merely...but...比简单写not only更适合强调目的。"),
+  coreSentence("sentence-17", "数字工具", "Convenience should never be mistaken for genuine understanding, especially when a tool provides an answer too quickly.", "便利绝不应被误认为真正的理解，尤其是在工具过快给出答案时。", "should never be mistaken for ...", ["convenience", "genuine understanding", "too quickly"], "适合人工智能、独立思考和数字素养主题。", "可用于讨论为什么不能盲目依赖工具。", "mistake A for B表示把A误认为B；especially when补充风险条件。"),
+  coreSentence("sentence-18", "数字素养", "Before relying on an automated suggestion, users should check its source, purpose and possible limitations.", "在依赖自动化建议之前，使用者应该核查它的来源、目的和可能的局限。", "Before doing ..., ... should ...", ["rely on", "automated suggestion", "possible limitations"], "适合人工智能、信息核验和网络安全主题。", "可用于回答如何负责任地使用人工智能。", "三个并列名词source、purpose和limitations让表达更完整。"),
+  coreSentence("sentence-19", "科技创新", "Technology is most useful when it removes unnecessary barriers without removing the need for human judgment.", "当技术消除不必要的障碍而没有消除人的判断需要时，技术才最有用。", "be most useful when ... without ...", ["remove barriers", "human judgment", "unnecessary"], "适合科技创新、智能服务和人机关系主题。", "可用于评价技术是否真正改善生活。", "without后接动名词，表示技术改进的边界。"),
+  coreSentence("sentence-20", "信息公平", "Digital access matters only if people can understand the information and use it to make informed decisions.", "数字化获取只有在人们能够理解信息并用它作出知情决定时才有意义。", "matter only if ...", ["digital access", "informed decisions", "understand information"], "适合数字鸿沟、公共服务和信息公平主题。", "可用于说明设备普及不等于真正平等。", "matter only if引出必要条件；informed decision表示知情决定。"),
+  coreSentence("sentence-21", "环境保护", "Protecting the environment requires both responsible individual choices and policies that make those choices easier to maintain.", "保护环境既需要个人作出负责任的选择，也需要让这些选择更容易坚持的政策。", "require both A and B", ["responsible choices", "policies", "maintain"], "适合环境保护、公共政策和低碳生活主题。", "可用于回答个人行动与政府政策的关系。", "both...and连接两个并列名词短语；that引导定语从句。"),
+  coreSentence("sentence-22", "绿色出行", "Public transport becomes attractive when it is reliable, affordable and convenient enough for everyday use.", "当公共交通足够可靠、负担得起且便利到可以日常使用时，它才会有吸引力。", "become attractive when ...", ["reliable", "affordable", "everyday use"], "适合绿色出行、城市治理和公共服务主题。", "可用于说明人们为什么选择或放弃公共交通。", "三个形容词并列，具体回答政策如何改变行为。"),
+  coreSentence("sentence-23", "公共政策", "A policy is more likely to succeed when its benefits are visible and its requirements are realistic.", "一项政策的好处清晰可见且要求切实可行时，更有可能取得成功。", "be more likely to succeed when ...", ["policy", "visible benefits", "realistic requirements"], "适合政策执行、社会治理和公共参与主题。", "可用于评价一项措施是否可持续。", "visible与realistic分别对应效果感知和执行成本。"),
+  coreSentence("sentence-24", "发展观念", "Economic growth should be judged not only by how much is produced but also by how fairly its benefits are shared.", "经济增长不应只根据生产了多少来判断，还应看增长收益分配得是否公平。", "be judged by ... not only ... but also ...", ["economic growth", "judge by", "fairly shared"], "适合经济发展、社会公平和共同富裕主题。", "可用于讨论如何定义高质量发展。", "被动结构be judged by适合正式写作，how引导两个并列宾语从句。"),
+  coreSentence("sentence-25", "文化传承", "Cultural heritage can be preserved more effectively when local communities are treated as active participants rather than passive audiences.", "当当地社区被视为积极参与者而不是被动观众时，文化遗产才能得到更有效的保护。", "treat A as ... rather than ...", ["cultural heritage", "active participants", "passive audiences"], "适合文化传承、非遗保护和社区参与主题。", "可用于说明保护文化不能只靠展示。", "be treated as被动语态；rather than突出角色转变。"),
+  coreSentence("sentence-26", "翻译表达", "Translation involves more than replacing words; it also requires attention to context, tone and cultural meaning.", "翻译不仅是替换词语，还需要关注语境、语气和文化含义。", "involve more than ...; require attention to ...", ["replace words", "context", "cultural meaning"], "适合翻译方法、文化交流和语言学习主题。", "可用于说明好的翻译为什么不能逐词对应。", "分号后的it指translation，requires与involves形成递进。"),
+  coreSentence("sentence-27", "青年参与", "Young people are more willing to engage with tradition when they are allowed to reinterpret it in contemporary forms.", "当年轻人被允许以当代形式重新诠释传统时，他们更愿意参与其中。", "be willing to do when ...", ["engage with tradition", "reinterpret", "contemporary forms"], "适合传统文化、青年参与和文化创新主题。", "可用于回答如何让传统文化吸引年轻人。", "be allowed to do表达被给予空间；engage with比简单的like更准确。"),
+  coreSentence("sentence-28", "文化创新", "A tradition gains new meaning when it continues to answer the needs of the people who inherit it.", "一项传统在继续回应传承者需求时会获得新的意义。", "gain new meaning when ...", ["gain new meaning", "answer the needs", "inherit"], "适合文化传承、代际关系和社会变化主题。", "可用于讨论传统如何在现代社会延续。", "who引导定语从句修饰people；inherit在此表示继承文化。"),
+  coreSentence("sentence-29", "写作论证", "A convincing argument connects a clear claim with evidence that directly addresses the question under discussion.", "有说服力的论点会把清晰的主张与直接回应讨论问题的证据联系起来。", "connect A with B that ...", ["convincing argument", "clear claim", "directly address"], "适合写作方法、论证和信息判断主题。", "可用于解释一篇文章为什么有说服力。", "that引导定语从句修饰evidence；directly强调证据相关性。"),
+  coreSentence("sentence-30", "段落结构", "A clear paragraph usually begins with a focused topic sentence and develops it through explanation or example.", "一个清晰的段落通常以明确的主题句开头，并通过解释或例子展开。", "begin with ... and develop ... through ...", ["focused topic sentence", "develop", "explanation or example"], "适合六级作文段落结构和主题句训练。", "可用于回答如何组织一段英文表达。", "begin和develop共享主语；through表示展开手段。"),
+  coreSentence("sentence-31", "举例论证", "Examples are persuasive only when they clarify the general point instead of distracting readers from it.", "例子只有在阐明一般观点而不是让读者偏离观点时才有说服力。", "be persuasive only when ... instead of ...", ["persuasive", "clarify the point", "distract readers"], "适合写作举例、论证有效性和信息组织主题。", "可用于说明举例不能只是罗列经历。", "only when限定条件；instead of后接动名词。"),
+  coreSentence("sentence-32", "让步表达", "Acknowledging a limitation does not weaken an argument if the writer explains how the problem can be addressed.", "如果作者解释了如何解决问题，承认局限并不会削弱论点。", "does not ... if ...", ["acknowledge a limitation", "weaken an argument", "address a problem"], "适合六级作文让步、平衡观点和措施论证。", "可用于回答如何处理一个方案的缺点。", "if从句说明承认局限后仍有解决路径，逻辑比绝对化表达更稳。"),
+  coreSentence("sentence-33", "口语观点", "I would approach this issue from both the individual and the institutional perspective.", "我会从个人和制度两个角度来分析这个问题。", "approach an issue from both A and B", ["approach an issue", "individual perspective", "institutional perspective"], "适合口试讨论、观点展开和作文开头。", "可直接用作口语Part 2或讨论题的结构句。", "from both...and...提示后文要分别展开两个层面。"),
+  coreSentence("sentence-34", "口语衔接", "From my perspective, the most practical solution is to improve the system before asking individuals to change their habits.", "在我看来，最实际的解决方案是在要求个人改变习惯之前先改进制度。", "From my perspective, ... before ...", ["practical solution", "improve the system", "change habits"], "适合写作措施段和口语观点题。", "可用于提出先解决环境条件再要求个人行动的观点。", "before引出先后关系；asking individuals to do比要求某人改变更自然。"),
+  coreSentence("sentence-35", "口语举措", "One practical way to encourage participation is to reduce the time and information costs involved.", "鼓励参与的一种实际方式是降低参与所涉及的时间和信息成本。", "One practical way to ... is to ...", ["encourage participation", "reduce costs", "involved"], "适合公共参与、志愿服务和校园活动主题。", "可用于回答如何让更多人参加一项活动。", "involved后置修饰costs；time and information costs使措施更具体。"),
+  coreSentence("sentence-36", "口语平衡", "It is difficult to solve a complex problem with a single measure, because different groups may face different barriers.", "很难用一项措施解决复杂问题，因为不同群体可能面临不同障碍。", "It is difficult to ... because ...", ["complex problem", "single measure", "different barriers"], "适合写作结尾、政策分析和口语讨论。", "可用于避免把复杂问题简单化。", "because从句给出原因；may face保留合理的不确定性。"),
+  coreSentence("sentence-37", "阅读策略", "Readers should distinguish between information that is merely mentioned and evidence that supports the author's conclusion.", "读者应该区分仅被提及的信息和支持作者结论的证据。", "distinguish between A and B", ["merely mentioned", "support a conclusion", "evidence"], "适合阅读理解、信息筛选和批判性思维主题。", "可用于解释做阅读题时为什么不能看到原词就选。", "merely降低信息重要性；that引导两个定语从句保持结构平行。"),
+  coreSentence("sentence-38", "阅读判断", "A headline may attract attention, but the details determine whether a claim is reliable.", "标题可能吸引注意，但细节决定一个说法是否可靠。", "A may ..., but B determines whether ...", ["headline", "attract attention", "reliable claim"], "适合媒体素养、网络信息和阅读方法主题。", "可用于讨论如何判断网络消息。", "but后用details与headline形成对比；whether引出判断内容。"),
+  coreSentence("sentence-39", "逻辑关系", "The relationship between a problem and its solution becomes clearer when the causes are identified before the measures are proposed.", "当在提出措施前先找出原因时，问题与解决方案之间的关系会更清晰。", "becomes clearer when ... before ...", ["relationship", "identify causes", "propose measures"], "适合写作问题解决型作文和阅读逻辑。", "可用于回答为什么建议必须建立在原因分析之上。", "被动结构are identified和are proposed保持形式平行。"),
+  coreSentence("sentence-40", "证据判断", "Evidence becomes more convincing when it is specific enough to be checked and relevant enough to answer the question.", "证据足够具体、可以核查，并且足够相关、能够回答问题时，会更有说服力。", "be ... enough to ... and ... enough to ...", ["convincing evidence", "be checked", "relevant"], "适合阅读证据、写作论证和信息素养主题。", "可用于说明什么样的例子才真正有效。", "两个enough to结构并列，分别强调可核查性和相关性。"),
+  coreSentence("sentence-41", "健康生活", "A realistic schedule should protect essential tasks while leaving enough flexibility for unexpected changes.", "一个现实的时间表既要保证重要任务，也要为意外变化留下足够弹性。", "should ... while leaving ... for ...", ["realistic schedule", "essential tasks", "unexpected changes"], "适合时间管理、健康生活和学习计划主题。", "可用于说明为什么计划不能排得过满。", "while连接同时发生的两个要求；leave flexibility for是固定搭配。"),
+  coreSentence("sentence-42", "注意力管理", "Short breaks are helpful when they restore attention rather than become another source of distraction.", "短暂休息在恢复注意力而不是变成另一种干扰时才有帮助。", "be helpful when ... rather than ...", ["restore attention", "source of distraction", "short breaks"], "适合学习方法、数字自律和健康主题。", "可用于讨论休息和手机使用的区别。", "rather than后的become与restore保持并列逻辑。"),
+  coreSentence("sentence-43", "睡眠与学习", "Sleep is not wasted time; it is part of the process through which the brain organizes new information.", "睡眠不是浪费时间，而是大脑整理新信息过程的一部分。", "not ...; it is part of ... through which ...", ["wasted time", "organize information", "process"], "适合健康、学习科学和效率主题。", "可用于回答为什么备考不能长期熬夜。", "through which引导定语从句，说明process的作用。"),
+  coreSentence("sentence-44", "就业能力", "Employers value graduates who can learn independently, communicate clearly and respond constructively to criticism.", "雇主看重能够独立学习、清晰沟通并建设性回应批评的毕业生。", "value graduates who can ...", ["learn independently", "communicate clearly", "constructively"], "适合就业、大学教育和综合能力主题。", "可用于回答大学生应培养哪些能力。", "三个动词并列，constructively修饰respond，表达回应方式。"),
+  coreSentence("sentence-45", "适应变化", "The ability to adapt does not mean abandoning one's principles; it means applying them wisely in changing situations.", "适应能力并不意味着放弃原则，而是意味着在变化的情境中明智地运用原则。", "does not mean ...; it means ...", ["ability to adapt", "principles", "changing situations"], "适合就业、个人成长和社会变化主题。", "可用于回答适应变化是否等于没有立场。", "分号后的it指the ability to adapt；applying与abandoning形成对照。"),
+  coreSentence("sentence-46", "实践学习", "Internships are valuable when students are encouraged to reflect on what they observe instead of simply completing assigned tasks.", "当学生被鼓励反思所观察到的内容，而不是只完成分配的任务时，实习才有价值。", "be valuable when ... instead of ...", ["internships", "reflect on", "assigned tasks"], "适合就业、实践教育和能力培养主题。", "可用于讨论实习如何真正帮助大学生。", "reflect on后接名词或动名词；instead of强调从做事到反思的提升。"),
+  coreSentence("sentence-47", "公共服务", "Public services should be designed around people's actual needs rather than around the convenience of the provider.", "公共服务应该围绕人们的实际需求设计，而不是围绕提供者的便利设计。", "be designed around ... rather than ...", ["public services", "actual needs", "provider"], "适合公共治理、服务型政府和社会公平主题。", "可用于评价一个公共服务是否真正以人为本。", "rather than连接两个介词短语，结构简洁有力。"),
+  coreSentence("sentence-48", "社区参与", "Community participation becomes sustainable when people can see both the value of their contribution and the results it produces.", "当人们既能看到自己的贡献价值，也能看到它产生的结果时，社区参与才可持续。", "becomes sustainable when ... both ... and ...", ["community participation", "value of contribution", "results"], "适合志愿服务、社区建设和社会责任主题。", "可用于回答如何让志愿活动长期开展。", "both连接value和results；it指their contribution。"),
+].map(normalizeCoreSentence));
 
 export function dailyCoreSentences(day = 1) {
   const normalizedDay = Math.max(1, Number(day) || 1);

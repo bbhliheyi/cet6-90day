@@ -39,8 +39,14 @@ if (plan[0].date !== "2026-09-13" || plan[89].date !== "2026-12-11") {
   throw new Error(`计划日期错误：${plan[0].date} 至 ${plan[89].date}`);
 }
 if (VOCABULARY.length < 40) throw new Error("首批原创词汇少于40条");
-if (CORE_SENTENCES.length < 12) throw new Error("核心句素材少于12条");
-if (EAR_TRAINING_UNITS.length < 6) throw new Error("磨耳朵素材少于6段");
+if (CORE_SENTENCES.length < 48) throw new Error("核心句素材少于48条");
+if (!CORE_SENTENCES.every((sentence) => sentence.sourceType === "original-modeled" && sentence.sourceLabel && sentence.sourceDetail)) {
+  throw new Error("核心句必须完整标记原创来源");
+}
+if (EAR_TRAINING_UNITS.length < 24) throw new Error("磨耳朵素材少于24段");
+if (!EAR_TRAINING_UNITS.every((unit) => unit.sourceType === "original-modeled" && unit.sourceLabel && unit.sourceDetail)) {
+  throw new Error("磨耳朵素材必须完整标记原创来源");
+}
 if (!EAR_TRAINING_UNITS.every((unit) => unit.segments.length >= 5 && unit.focusChunks.length === 3)) {
   throw new Error("磨耳朵素材必须包含至少5个语段和3个关键语块");
 }
@@ -151,4 +157,4 @@ for (const marker of ["enable row level security", "auth.uid()", "sync_study_sta
   if (!schema.includes(marker)) throw new Error(`Supabase数据库脚本缺少：${marker}`);
 }
 
-console.log(`检查通过：${plan.length}天计划，${VOCABULARY.length}个原创词条，${practiceItems.length}个专项训练单元，${MOCK_EXAMS.length}套原创完整测试，${requiredFiles.length}个核心文件。`);
+console.log(`检查通过：${plan.length}天计划，${VOCABULARY.length}个原创词条，${CORE_SENTENCES.length}条核心句，${EAR_TRAINING_UNITS.length}段磨耳朵，${practiceItems.length}个专项训练单元，${MOCK_EXAMS.length}套原创完整测试，${requiredFiles.length}个核心文件。`);

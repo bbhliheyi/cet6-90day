@@ -1423,6 +1423,15 @@ button {
   letter-spacing: 0.08em;
 }
 
+.sentence-source,
+.ear-source-note {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 .sentence-detail {
   margin-top: 16px;
   padding-top: 13px;

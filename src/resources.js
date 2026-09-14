@@ -41,6 +41,21 @@ export const RESOURCE_CATALOG = Object.freeze([
     ],
   },
   {
+    id: "listening-speaking-more",
+    title: "听力与口语专项补充",
+    description: "用于增加不同语速、口音、对话和口语输出输入；本站不保存外部音频，也不替代CET官方考试材料。",
+    type: "外部练习",
+    tone: "listening",
+    items: [
+      { name: "Cambridge Speak & Improve", modules: "口语回答、自动反馈、流利度练习", access: "外部工具", url: "https://speakandimprove.com/", detail: "适合完成短回答后回听并参考系统反馈；评分仅作练习参考，不等同CET口试评分。" },
+      { name: "BBC 6 Minute English", modules: "短篇听力、词汇、自然表达", access: "外部网站", url: "https://www.bbc.co.uk/learningenglish/english/features/6-minute-english", detail: "适合每日短时泛听、记录主题词并用三句话复述。" },
+      { name: "Randall's ESL Cyber Listening Lab", modules: "分级听力、对话、听力问答", access: "外部网站", url: "https://www.esl-lab.com/", detail: "适合从中级到高级逐步增加听力长度，并练习先听后核对文本。" },
+      { name: "ELLLO", modules: "不同口音、对话、听力测验", access: "外部网站", url: "https://elllo.org/", detail: "适合接触多种说话者和自然对话，训练抓主旨与关键信息。" },
+      { name: "Oxford Online English", modules: "口语表达、发音、听力、语法", access: "外部网站", url: "https://www.oxfordonlineenglish.com/", detail: "适合查找口语表达和发音讲解，再将句型迁移到六级口试回答。" },
+      { name: "TED Talks", modules: "演讲、学术语流、观点复述", access: "外部网站", url: "https://www.ted.com/talks", detail: "适合进阶讲座泛听；先听标题和开头预测，再记录观点、例子和结论。" },
+    ],
+  },
+  {
     id: "commercial-tools",
     title: "商业题库与听力工具（外部使用）",
     description: "这些平台保留在原网站或App内使用；本站只提供入口、使用建议和个人学习记录，不镜像题目、音频、解析或付费内容。",

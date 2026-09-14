@@ -1,23 +1,23 @@
-const CACHE_NAME = "cet6-90day-v0.5.6";
+const CACHE_NAME = "cet6-90day-v0.5.7";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=0.5.6",
+  "./styles.css?v=0.5.7",
   "./manifest.webmanifest",
   "./icon.svg",
-  "./src/app.js?v=0.5.6",
-  "./src/content.js?v=0.5.6",
-  "./src/practice-bank.js?v=0.5.6",
-  "./src/mock-exams.js?v=0.5.6",
-  "./src/ear-training.js?v=0.5.6",
-  "./src/lessons.js?v=0.5.6",
-  "./src/resources.js?v=0.5.6",
-  "./src/storage.js?v=0.5.6",
-  "./src/accounts.js?v=0.5.6",
-  "./src/cloud.js?v=0.5.6",
-  "./src/cloud-config.js?v=0.5.6",
-  "./src/vendor/supabase.js?v=0.5.6",
-  "./src/db.js?v=0.5.6"
+  "./src/app.js?v=0.5.7",
+  "./src/content.js?v=0.5.7",
+  "./src/practice-bank.js?v=0.5.7",
+  "./src/mock-exams.js?v=0.5.7",
+  "./src/ear-training.js?v=0.5.7",
+  "./src/lessons.js?v=0.5.7",
+  "./src/resources.js?v=0.5.7",
+  "./src/storage.js?v=0.5.7",
+  "./src/accounts.js?v=0.5.7",
+  "./src/cloud.js?v=0.5.7",
+  "./src/cloud-config.js?v=0.5.7",
+  "./src/vendor/supabase.js?v=0.5.7",
+  "./src/db.js?v=0.5.7"
 ];
 
 self.addEventListener("install", (event) => {

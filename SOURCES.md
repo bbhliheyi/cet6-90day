@@ -89,6 +89,34 @@
     `https://americanenglish.state.gov/`
     用途：美国英语、教师资源、课堂活动与文化主题材料。
 
+## B-1.1级：听力与口语专项补充
+
+用于增加不同语速、口音、对话和口语输出输入；本站不保存外部音频，也不替代CET官方考试材料。
+
+1. Cambridge Speak & Improve
+   `https://speakandimprove.com/`
+   用途：完成短回答后回听并参考系统反馈；评分仅作练习参考，不等同CET口试评分。
+
+2. BBC 6 Minute English
+   `https://www.bbc.co.uk/learningenglish/english/features/6-minute-english`
+   用途：每日短时泛听、记录主题词并用三句话复述。
+
+3. Randall's ESL Cyber Listening Lab
+   `https://www.esl-lab.com/`
+   用途：分级对话听力、先听后核对文本和细节问答。
+
+4. ELLLO
+   `https://elllo.org/`
+   用途：接触多种说话者和自然对话，训练抓主旨与关键信息。
+
+5. Oxford Online English
+   `https://www.oxfordonlineenglish.com/`
+   用途：查询口语表达、发音和听力讲解，再迁移到六级口试回答。
+
+6. TED Talks
+   `https://www.ted.com/talks`
+   用途：进阶讲座泛听，记录观点、例子和结论并进行复述。
+
 ## B-2级：商业题库与听力工具入口
 
 以下平台只在原网站或App内使用，本站不抓取、不镜像、不上传付费题目、音频、解析和账号内容。
