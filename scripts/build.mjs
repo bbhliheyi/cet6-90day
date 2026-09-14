@@ -6,7 +6,7 @@ const dist = new URL("../dist/", import.meta.url);
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
 
-for (const file of ["index.html", "styles.css", "manifest.webmanifest", "sw.js", "icon.svg"]) {
+for (const file of ["index.html", "styles.css", "manifest.webmanifest", "sw.js", "icon.svg", "THIRD_PARTY_NOTICES.md"]) {
   await cp(new URL(file, root), new URL(file, dist));
 }
 await cp(new URL("src/", root), new URL("src/", dist), { recursive: true });

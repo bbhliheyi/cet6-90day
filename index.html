@@ -11,7 +11,7 @@
     <title>大学英语六级 · 90天通关训练营</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=0.5.9" />
+    <link rel="stylesheet" href="./styles.css?v=0.6.0" />
   </head>
   <body>
     <div class="app-shell">
@@ -160,13 +160,56 @@
             <div>
               <p class="eyebrow">VOCABULARY LAB</p>
               <h2>单词训练</h2>
-              <p>认读、发音、拼写、语境和搭配五步训练，复习节奏由本站独立规则安排。</p>
+              <p>真实语境、听音拼写、看义回忆和间隔复习混合训练；支持点击翻面、再次点击继续和左右滑动评级。</p>
             </div>
             <div class="section-actions">
               <button class="outline-button" data-open-lesson="vocabulary-method">查看词汇讲解</button>
               <button class="outline-button" id="start-vocab-test">开始10词考核</button>
             </div>
           </div>
+
+          <article class="panel vocab-control-panel">
+            <div class="vocab-control-main">
+              <label>选择词表
+                <select id="vocab-book-select">
+                  <option value="cet6">六级重点1253词 + 精讲补充</option>
+                  <option value="high-frequency">考试文本高频2104词</option>
+                  <option value="all">四六级全大纲5278词 + 精讲补充</option>
+                </select>
+              </label>
+              <label>每日新词
+                <select id="vocab-daily-new">
+                  <option value="20">20词</option>
+                  <option value="30">30词</option>
+                  <option value="50">50词</option>
+                  <option value="80">80词</option>
+                </select>
+              </label>
+              <div class="vocab-session-summary">
+                <span>今日待复习<strong id="vocab-review-due">0</strong></span>
+                <span>今日新词<strong id="vocab-new-remaining">0</strong></span>
+                <span>当前词表<strong id="vocab-book-total">0</strong></span>
+              </div>
+            </div>
+            <div class="vocab-mode-tabs" id="vocab-mode-tabs" aria-label="背词模式">
+              <button class="is-selected" data-vocab-mode="smart">智能混合</button>
+              <button data-vocab-mode="meaning">看词回忆</button>
+              <button data-vocab-mode="context">例句填空</button>
+              <button data-vocab-mode="listening">听音拼写</button>
+              <button data-vocab-mode="chinese">看义想词</button>
+            </div>
+            <p class="vocab-license-note">词表数据来源于 <a href="https://github.com/exam-data/CETVocabulary" target="_blank" rel="noreferrer">exam-data/CETVocabulary</a>，按 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noreferrer">CC BY-NC-SA 4.0</a> 使用并做字段压缩；词频用于确定学习优先级，“真题考点”不复制真题原句。<a href="./THIRD_PARTY_NOTICES.md" target="_blank">查看数据许可说明</a></p>
+          </article>
+
+          <details class="panel vocab-browser-panel">
+            <summary><span><strong>浏览海量词表</strong><small>搜索单词、中文释义或主题分类，查看当前词表中的全部词条</small></span><b>展开 →</b></summary>
+            <div class="vocab-browser-tools">
+              <input id="vocab-search" type="search" placeholder="例如：environment / 环境 / 科学技术" autocomplete="off" />
+              <span id="vocab-search-count">0 个结果</span>
+            </div>
+            <div id="vocab-browser-results" class="vocab-browser-results"></div>
+            <button type="button" class="outline-button" id="vocab-load-more">再显示50词</button>
+          </details>
 
           <div class="vocab-layout">
             <article class="word-card" id="word-card">
@@ -194,9 +237,10 @@
 
             <div class="vocab-side">
               <article class="panel mini-stat-panel">
-                <p class="eyebrow">今日词汇</p>
-                <div class="big-stat"><strong id="vocab-today-count">0</strong><span>/ 30</span></div>
+                <p class="eyebrow">今日已完成</p>
+                <div class="big-stat"><strong id="vocab-today-count">0</strong><span id="vocab-today-target">/ 30</span></div>
                 <div class="progress-track"><span id="vocab-today-bar"></span></div>
+                <p class="vocab-review-line">复习完成 <strong id="vocab-reviewed-today">0</strong> · 新学 <strong id="vocab-new-today">0</strong></p>
               </article>
               <article class="panel">
                 <p class="eyebrow">掌握分布</p>
@@ -504,6 +548,6 @@
 
     <div id="selection-translator" class="selection-translator" hidden role="dialog" aria-label="选区翻译工具"></div>
 
-    <script type="module" src="./src/app.js?v=0.5.9"></script>
+    <script type="module" src="./src/app.js?v=0.6.0"></script>
   </body>
 </html>
