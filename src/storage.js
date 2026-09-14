@@ -1,4 +1,7 @@
-const STORAGE_KEY = "cet6-90day-state-v1";
+import { getActiveAccountId, getCurrentAccount } from "./accounts.js?v=0.4.0";
+
+const LEGACY_STORAGE_KEY = "cet6-90day-state-v1";
+const ACCOUNT_STORAGE_PREFIX = "cet6-90day-state-v2";
 
 export const DEFAULT_STATE = Object.freeze({
   schemaVersion: 1,
@@ -51,20 +54,39 @@ function mergeState(candidate) {
   };
 }
 
-export function loadState() {
+export function getStateStorageKey(accountId = getActiveAccountId()) {
+  return `${ACCOUNT_STORAGE_PREFIX}:${accountId}`;
+}
+
+function migrateLegacyGuestState() {
+  const guestKey = getStateStorageKey("guest");
+  const legacyState = localStorage.getItem(LEGACY_STORAGE_KEY);
+  if (!legacyState) return;
+  if (!localStorage.getItem(guestKey)) localStorage.setItem(guestKey, legacyState);
+  localStorage.removeItem(LEGACY_STORAGE_KEY);
+}
+
+export function loadState(accountId = getActiveAccountId()) {
   try {
-    return mergeState(JSON.parse(localStorage.getItem(STORAGE_KEY)));
+    if (accountId === "guest") migrateLegacyGuestState();
+    return mergeState(JSON.parse(localStorage.getItem(getStateStorageKey(accountId))));
   } catch {
     return cloneDefaultState();
   }
 }
 
-export function saveState(state, touchUpdatedAt = true) {
+export function saveState(state, touchUpdatedAt = true, accountId = getActiveAccountId()) {
   if (touchUpdatedAt) state.updatedAt = new Date().toISOString();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  localStorage.setItem(getStateStorageKey(accountId), JSON.stringify(state));
 }
 
-export function exportState(state) {
+export function saveStateForAccount(state, accountId, touchUpdatedAt = true) {
+  const snapshot = mergeState(JSON.parse(JSON.stringify(state)));
+  saveState(snapshot, touchUpdatedAt, accountId);
+  return snapshot;
+}
+
+export function exportState(state, account = getCurrentAccount()) {
   const exportedAt = new Date().toISOString();
   state.lastExportAt = exportedAt;
   state.updatedAt = exportedAt;
@@ -72,6 +94,11 @@ export function exportState(state) {
   const payload = {
     app: "cet6-90day",
     exportedAt,
+    account: {
+      username: account.username,
+      displayName: account.displayName,
+      type: account.type,
+    },
     state,
     note: "口语录音等大文件未包含在首版JSON备份中。",
   };
@@ -79,12 +106,13 @@ export function exportState(state) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `cet6-90day-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  const accountName = account.username.replace(/[^\p{L}\p{N}_-]+/gu, "-");
+  link.download = `cet6-90day-${accountName}-${new Date().toISOString().slice(0, 10)}.json`;
   link.click();
   URL.revokeObjectURL(url);
 }
 
-export async function importState(file) {
+export async function importState(file, accountId = getActiveAccountId()) {
   if (!file || file.size > 8 * 1024 * 1024) {
     throw new Error("备份文件无效或超过8MB。" );
   }
@@ -94,11 +122,15 @@ export async function importState(file) {
     throw new Error("这不是受支持的六级训练营备份文件。" );
   }
   const nextState = mergeState(payload.state);
-  saveState(nextState);
+  saveState(nextState, true, accountId);
   return nextState;
 }
 
-export function resetState() {
-  localStorage.removeItem(STORAGE_KEY);
+export function resetState(accountId = getActiveAccountId()) {
+  localStorage.removeItem(getStateStorageKey(accountId));
   return cloneDefaultState();
+}
+
+export function deleteStateForAccount(accountId) {
+  localStorage.removeItem(getStateStorageKey(accountId));
 }

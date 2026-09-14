@@ -8,12 +8,30 @@ import {
   VOCABULARY,
   buildPlan,
   dailyCoreSentences,
-} from "./content.js?v=0.3.2";
-import { RESOURCE_CATALOG } from "./resources.js?v=0.3.2";
-import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.3.2";
-import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.3.2";
-import { getLatestRecording, saveRecording } from "./db.js?v=0.3.2";
-import { exportState, importState, loadState, resetState, saveState } from "./storage.js?v=0.3.2";
+} from "./content.js?v=0.4.0";
+import { RESOURCE_CATALOG } from "./resources.js?v=0.4.0";
+import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.4.0";
+import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.4.0";
+import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.4.0";
+import {
+  authenticateLocalAccount,
+  createLocalAccount,
+  deleteLocalAccount,
+  getActiveAccountId,
+  getCurrentAccount,
+  listLocalAccounts,
+  setActiveAccount,
+  useGuestAccount,
+} from "./accounts.js?v=0.4.0";
+import {
+  deleteStateForAccount,
+  exportState,
+  importState,
+  loadState,
+  resetState,
+  saveState,
+  saveStateForAccount,
+} from "./storage.js?v=0.4.0";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -1041,7 +1059,7 @@ async function renderLatestRecording(holderId = "latest-recording", kind = "spea
   const holder = $("#" + holderId);
   if (!holder) return;
   try {
-    const recording = await getLatestRecording(kind);
+    const recording = await getLatestRecording(kind, getActiveAccountId());
     if (!recording) {
       holder.innerHTML = '<p class="muted">还没有本地录音。</p>';
       return;
@@ -1112,7 +1130,8 @@ async function startRecording(item, options = {}) {
     recorder.addEventListener("stop", async () => {
       try {
         const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
-        await saveRecording({ id: `recording-${Date.now()}`, kind: context.kind, promptId: item.id, blob, createdAt: new Date().toISOString() });
+        const accountId = getActiveAccountId();
+        await saveRecording({ id: `${accountId}-recording-${Date.now()}`, accountId, kind: context.kind, promptId: item.id, blob, createdAt: new Date().toISOString() });
         if (context.recordAttempt) savePracticeAttempt(context.module, item.id, 70);
         else {
           recordActivity("eartraining", "影子跟读录音", item.id);
@@ -1280,10 +1299,145 @@ function initializeNotes() {
   loadNoteEditor();
 }
 
+function hasMeaningfulStudyData(snapshot = state) {
+  return Boolean(
+    Object.keys(snapshot.completedTasks || {}).length
+      || Object.keys(snapshot.vocabulary || {}).length
+      || Object.keys(snapshot.sentenceProgress || {}).length
+      || Object.keys(snapshot.earTraining || {}).length
+      || (snapshot.practiceAttempts || []).length
+      || snapshot.notes?.html
+      || snapshot.studyMinutes,
+  );
+}
+
+function accountInitials(displayName) {
+  return Array.from(displayName || "访客").slice(0, 2).join("");
+}
+
+function renderAccountChrome() {
+  const account = getCurrentAccount();
+  const accountType = account.type === "local" ? "本机账户" : "访客模式";
+  const button = $("#data-button");
+  button.textContent = accountInitials(account.displayName);
+  button.title = `${account.displayName} · 账户与数据`;
+  button.setAttribute("aria-label", `打开${account.displayName}的账户与数据管理`);
+  const summary = $("#account-summary");
+  if (summary) {
+    summary.innerHTML = `<span class="account-summary-avatar">${escapeHtml(accountInitials(account.displayName))}</span><div><strong>${escapeHtml(account.displayName)}</strong><small>${accountType}${account.type === "local" ? ` · @${escapeHtml(account.username)}` : " · 无需登录"}</small></div><span class="account-mode-badge">${account.type === "local" ? "已登录" : "访客"}</span>`;
+  }
+  const note = $("#data-storage-note");
+  if (note) {
+    note.textContent = account.type === "local"
+      ? "该账户的进度、笔记和录音与其他本机账户隔离，当前仅保存在此浏览器。"
+      : "访客进度单独保存在当前浏览器；创建本机账户后可复制现有进度。";
+  }
+}
+
+function setAccountMessage(message, isError = false) {
+  const holder = $("#account-message");
+  if (!holder) return;
+  holder.textContent = message;
+  holder.classList.toggle("is-error", isError);
+  holder.hidden = !message;
+}
+
+function renderAccountManager() {
+  const current = getCurrentAccount();
+  const switchableAccounts = listLocalAccounts().filter((account) => account.id !== current.id);
+  const copyGuestProgress = current.type === "guest" && hasMeaningfulStudyData();
+  const holder = $("#account-dialog-content");
+  holder.innerHTML = `
+    <div class="account-security-note"><strong>当前为本机账户功能</strong><p>不同账户可独立保存学习记录；口令经过哈希处理，但数据仍只在当前浏览器，清理浏览器数据后可能丢失。</p></div>
+    <div class="account-current-card">
+      <span class="account-summary-avatar">${escapeHtml(accountInitials(current.displayName))}</span>
+      <div><small>当前身份</small><strong>${escapeHtml(current.displayName)}</strong><p>${current.type === "local" ? `@${escapeHtml(current.username)} · 本机账户` : "访客模式 · 无需登录"}</p></div>
+    </div>
+    <p class="account-message" id="account-message" role="status" hidden></p>
+    ${switchableAccounts.length ? `<section class="account-form-section"><h4>登录其他账户</h4><form id="switch-account-form" class="account-form"><label>账户<select id="switch-account-id" required>${switchableAccounts.map((account) => `<option value="${escapeHtml(account.id)}">${escapeHtml(account.displayName)} · @${escapeHtml(account.username)}</option>`).join("")}</select></label><label>登录口令<input id="switch-account-password" type="password" minlength="6" maxlength="64" autocomplete="current-password" required /></label><button class="outline-button" type="submit">登录并切换</button></form></section>` : ""}
+    <section class="account-form-section"><h4>创建新账户</h4><form id="create-account-form" class="account-form account-create-grid"><label>显示名称<input id="new-account-name" maxlength="20" autocomplete="nickname" placeholder="例如：小李" required /></label><label>用户名<input id="new-account-username" minlength="2" maxlength="24" autocomplete="username" placeholder="文字、字母或数字" required /></label><label>登录口令<input id="new-account-password" type="password" minlength="6" maxlength="64" autocomplete="new-password" required /></label><label>确认口令<input id="new-account-password-confirm" type="password" minlength="6" maxlength="64" autocomplete="new-password" required /></label>${copyGuestProgress ? '<label class="account-copy-option"><input id="copy-guest-progress" type="checkbox" checked /> 将当前访客进度复制到新账户</label>' : ""}<button class="primary-button" type="submit">创建并登录</button></form></section>
+    ${current.type === "local" ? `<section class="account-form-section account-session-actions"><h4>当前账户操作</h4><button type="button" class="outline-button" id="logout-account">退出到访客模式</button><form id="delete-account-form" class="account-delete-form"><input id="delete-account-password" type="password" minlength="6" maxlength="64" autocomplete="current-password" placeholder="输入口令确认删除" required /><button type="submit" class="danger-button">删除此账户及本机数据</button></form></section>` : ""}
+    <div class="cloud-sync-status"><span>云同步</span><div><strong>尚未启用跨设备同步</strong><p>后续接入安全云端认证后，可在电脑和手机间恢复同一账户记录；当前版本不会把学习数据上传到服务器。</p></div></div>`;
+
+  $("#switch-account-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submitButton = event.currentTarget.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    setAccountMessage("正在验证账户……");
+    try {
+      const accountId = $("#switch-account-id").value;
+      await authenticateLocalAccount(accountId, $("#switch-account-password").value);
+      setActiveAccount(accountId);
+      location.reload();
+    } catch (error) {
+      setAccountMessage(error.message, true);
+      submitButton.disabled = false;
+    }
+  });
+
+  $("#create-account-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submitButton = event.currentTarget.querySelector('button[type="submit"]');
+    const password = $("#new-account-password").value;
+    if (password !== $("#new-account-password-confirm").value) {
+      setAccountMessage("两次输入的登录口令不一致。", true);
+      return;
+    }
+    submitButton.disabled = true;
+    setAccountMessage("正在创建本机账户……");
+    try {
+      const account = await createLocalAccount({
+        displayName: $("#new-account-name").value,
+        username: $("#new-account-username").value,
+        password,
+      });
+      if ($("#copy-guest-progress")?.checked) saveStateForAccount(state, account.id, false);
+      setActiveAccount(account.id);
+      location.reload();
+    } catch (error) {
+      setAccountMessage(error.message, true);
+      submitButton.disabled = false;
+    }
+  });
+
+  $("#logout-account")?.addEventListener("click", () => {
+    useGuestAccount();
+    location.reload();
+  });
+
+  $("#delete-account-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!confirm(`确定删除账户“${current.displayName}”及其本机学习数据吗？此操作无法撤销。`)) return;
+    const submitButton = event.currentTarget.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    setAccountMessage("正在删除账户数据……");
+    try {
+      await deleteLocalAccount(current.id, $("#delete-account-password").value);
+      deleteStateForAccount(current.id);
+      await deleteRecordingsForAccount(current.id).catch(() => {});
+      useGuestAccount();
+      location.reload();
+    } catch (error) {
+      setAccountMessage(error.message, true);
+      submitButton.disabled = false;
+    }
+  });
+}
+
 function initializeDataManager() {
-  $("#data-button").addEventListener("click", () => $("#data-dialog").showModal());
+  renderAccountChrome();
+  $("#data-button").addEventListener("click", () => {
+    renderAccountChrome();
+    $("#data-dialog").showModal();
+  });
+  $("#manage-account").addEventListener("click", () => {
+    $("#data-dialog").close();
+    renderAccountManager();
+    $("#account-dialog").showModal();
+  });
+  $("#close-account-dialog").addEventListener("click", () => $("#account-dialog").close());
   $("#export-data").addEventListener("click", () => {
-    exportState(state);
+    exportState(state, getCurrentAccount());
     renderBackupReminder();
   });
   $("#import-data").addEventListener("change", async (event) => {
@@ -1295,9 +1449,12 @@ function initializeDataManager() {
       alert(error.message);
     }
   });
-  $("#reset-data").addEventListener("click", () => {
-    if (!confirm("确定清空全部学习记录和笔记吗？此操作无法撤销。")) return;
-    state = resetState();
+  $("#reset-data").addEventListener("click", async () => {
+    const account = getCurrentAccount();
+    if (!confirm(`确定清空“${account.displayName}”的学习记录、笔记和本机录音吗？账户本身会保留，此操作无法撤销。`)) return;
+    const accountId = getActiveAccountId();
+    state = resetState(accountId);
+    await deleteRecordingsForAccount(accountId).catch(() => {});
     location.reload();
   });
 }

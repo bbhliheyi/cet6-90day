@@ -1,17 +1,18 @@
-const CACHE_NAME = "cet6-90day-v0.3.2";
+const CACHE_NAME = "cet6-90day-v0.4.0";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=0.3.2",
+  "./styles.css?v=0.4.0",
   "./manifest.webmanifest",
   "./icon.svg",
-  "./src/app.js?v=0.3.2",
-  "./src/content.js?v=0.3.2",
-  "./src/ear-training.js?v=0.3.2",
-  "./src/lessons.js?v=0.3.2",
-  "./src/resources.js?v=0.3.2",
-  "./src/storage.js?v=0.3.2",
-  "./src/db.js?v=0.3.2"
+  "./src/app.js?v=0.4.0",
+  "./src/content.js?v=0.4.0",
+  "./src/ear-training.js?v=0.4.0",
+  "./src/lessons.js?v=0.4.0",
+  "./src/resources.js?v=0.4.0",
+  "./src/storage.js?v=0.4.0",
+  "./src/accounts.js?v=0.4.0",
+  "./src/db.js?v=0.4.0"
 ];
 
 self.addEventListener("install", (event) => {

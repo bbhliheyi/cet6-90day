@@ -16,6 +16,7 @@ const requiredFiles = [
   "src/lessons.js",
   "src/resources.js",
   "src/storage.js",
+  "src/accounts.js",
   "src/db.js",
 ];
 
@@ -41,7 +42,7 @@ const html = await readFile(new URL("index.html", root), "utf8");
 for (const id of ["view-dashboard", "view-plan", "view-vocabulary", "view-sentences", "view-eartraining", "view-practice", "view-lessons", "view-notices", "view-notes", "view-resources"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`缺少页面区域：${id}`);
 }
-for (const id of ["continue-learning", "backup-reminder", "plan-weekly", "ear-day-label"]) {
+for (const id of ["continue-learning", "backup-reminder", "plan-weekly", "ear-day-label", "account-summary", "account-dialog-content"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`缺少状态组件：${id}`);
 }
 
@@ -55,11 +56,11 @@ for (const marker of [`styles.css?v=${APP_VERSION}`, `src/app.js?v=${APP_VERSION
 for (const marker of [`cet6-90day-v${APP_VERSION}`, `src/app.js?v=${APP_VERSION}`, `src/content.js?v=${APP_VERSION}`]) {
   if (!serviceWorker.includes(marker)) throw new Error(`sw.js缺少版本标记：${marker}`);
 }
-for (const moduleFile of ["content", "resources", "ear-training", "lessons", "db", "storage"]) {
+for (const moduleFile of ["content", "resources", "ear-training", "lessons", "db", "accounts", "storage"]) {
   if (!appSource.includes(`./${moduleFile}.js?v=${APP_VERSION}`)) throw new Error(`src/app.js未版本化加载${moduleFile}.js`);
 }
 
-const productionFiles = ["package.json", "index.html", "src/app.js", "src/content.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/storage.js", "src/db.js"];
+const productionFiles = ["package.json", "index.html", "src/app.js", "src/content.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/storage.js", "src/accounts.js", "src/db.js"];
 const forbiddenPatterns = ["z-ai-web-dev-sdk", "apiKey:", "CHATGLM_API_KEY"];
 for (const file of productionFiles) {
   const content = await readFile(new URL(file, root), "utf8");
@@ -68,9 +69,43 @@ for (const file of productionFiles) {
   }
 }
 
-for (const file of ["src/app.js", "src/content.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/storage.js", "src/db.js", "sw.js", "scripts/build.mjs"]) {
+for (const file of ["src/app.js", "src/content.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/storage.js", "src/accounts.js", "src/db.js", "sw.js", "scripts/build.mjs"]) {
   const result = spawnSync(process.execPath, ["--check", new URL(file, root).pathname], { encoding: "utf8" });
   if (result.status !== 0) throw new Error(`${file} 语法检查失败：\n${result.stderr}`);
 }
+
+globalThis.localStorage = {
+  values: new Map(),
+  getItem(key) { return this.values.has(key) ? this.values.get(key) : null; },
+  setItem(key, value) { this.values.set(key, String(value)); },
+  removeItem(key) { this.values.delete(key); },
+};
+const accountModule = await import(`../src/accounts.js?quality=${APP_VERSION}`);
+const storageModule = await import(`../src/storage.js?quality=${APP_VERSION}`);
+localStorage.setItem("cet6-90day-state-v1", JSON.stringify({ ...storageModule.DEFAULT_STATE, studyMinutes: 7 }));
+if (storageModule.loadState("guest").studyMinutes !== 7 || localStorage.getItem("cet6-90day-state-v1")) {
+  throw new Error("旧版访客数据迁移失败");
+}
+storageModule.resetState("guest");
+if (storageModule.loadState("guest").studyMinutes !== 0) throw new Error("访客数据清空后被旧状态恢复");
+const firstAccount = await accountModule.createLocalAccount({ username: "quality-a", displayName: "检查甲", password: "quality-pass-a" });
+const secondAccount = await accountModule.createLocalAccount({ username: "quality-b", displayName: "检查乙", password: "quality-pass-b" });
+accountModule.setActiveAccount(firstAccount.id);
+const firstState = storageModule.loadState();
+firstState.studyMinutes = 11;
+storageModule.saveState(firstState);
+accountModule.setActiveAccount(secondAccount.id);
+const secondState = storageModule.loadState();
+secondState.studyMinutes = 22;
+storageModule.saveState(secondState);
+accountModule.setActiveAccount(firstAccount.id);
+if (storageModule.loadState().studyMinutes !== 11) throw new Error("本机账户学习状态未正确隔离");
+let rejectedWrongPassword = false;
+try {
+  await accountModule.authenticateLocalAccount(firstAccount.id, "wrong-password");
+} catch {
+  rejectedWrongPassword = true;
+}
+if (!rejectedWrongPassword) throw new Error("本机账户接受了错误口令");
 
 console.log(`检查通过：${plan.length}天计划，${VOCABULARY.length}个原创词条，${EAR_TRAINING_UNITS.length}段磨耳朵素材，${requiredFiles.length}个核心文件。`);

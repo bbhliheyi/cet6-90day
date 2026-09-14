@@ -2534,6 +2534,201 @@ dialog::backdrop {
   margin-top: 20px;
 }
 
+.account-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.account-summary-avatar {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--green);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.account-summary > div,
+.account-current-card > div,
+.cloud-sync-status > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.account-summary strong,
+.account-current-card strong,
+.cloud-sync-status strong {
+  display: block;
+}
+
+.account-summary small,
+.account-current-card small,
+.account-current-card p,
+.cloud-sync-status p,
+.account-security-note p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.account-mode-badge {
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: var(--green);
+  background: var(--mint);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.account-dialog-card {
+  max-height: min(88vh, 820px);
+  overflow-y: auto;
+}
+
+.account-security-note,
+.cloud-sync-status {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #eef3f0;
+}
+
+.account-security-note strong,
+.cloud-sync-status > span {
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.account-current-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.account-message {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--green);
+  background: var(--mint);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.account-message.is-error {
+  color: #8d3f3f;
+  background: #f3dddd;
+}
+
+.account-form-section {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.account-form-section h4 {
+  margin: 0 0 12px;
+  font-family: Georgia, "Noto Serif SC", serif;
+  font-size: 17px;
+}
+
+.account-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.account-create-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+.account-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.account-form input,
+.account-form select,
+.account-delete-form input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  outline: none;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.account-form input:focus,
+.account-form select:focus,
+.account-delete-form input:focus {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px rgba(214, 108, 56, 0.12);
+}
+
+.account-copy-option {
+  display: flex !important;
+  grid-column: 1 / -1;
+  align-items: center;
+  grid-template-columns: auto 1fr;
+  color: var(--ink) !important;
+}
+
+.account-copy-option input {
+  width: 16px;
+  min-height: 16px;
+}
+
+.account-create-grid > .primary-button {
+  justify-self: start;
+}
+
+.account-session-actions > .outline-button {
+  margin-bottom: 10px;
+}
+
+.account-delete-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 9px;
+}
+
+.cloud-sync-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  background: #f3f0e8;
+}
+
+.cloud-sync-status > span {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: #7a642a;
+  background: #e9dfbd;
+}
+
 .danger-button {
   min-height: 42px;
   padding: 0 16px;
@@ -2662,6 +2857,12 @@ dialog::backdrop {
   .topbar h1 { font-size: 23px; }
   .topbar-actions .ghost-button { display: none; }
   .avatar-button { width: 40px; height: 40px; font-size: 10px; }
+  .account-form,
+  .account-create-grid,
+  .account-delete-form { grid-template-columns: 1fr; }
+  .account-form .primary-button,
+  .account-form .outline-button,
+  .account-delete-form .danger-button { width: 100%; }
   .hero-card { min-height: 510px; grid-template-columns: 1fr; align-content: space-between; padding: 28px 24px; }
   .hero-copy h2 { font-size: 35px; }
   .countdown-card { min-height: 150px; }
