@@ -691,7 +691,6 @@ button {
   border: 1px solid var(--line);
   border-radius: 17px;
   background: rgba(255, 253, 248, 0.76);
-  cursor: pointer;
   transition: transform 160ms ease, border 160ms ease, background 160ms ease;
 }
 
@@ -708,8 +707,16 @@ button {
   opacity: 0;
 }
 
+.task-toggle,
+.plan-task-toggle {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 23px;
+  cursor: pointer;
+}
+
 .task-check,
-.plan-task > span {
+.plan-task-toggle > span {
   display: grid;
   flex: 0 0 23px;
   width: 23px;
@@ -720,6 +727,42 @@ button {
   color: transparent;
   background: #fff;
   font-size: 12px;
+}
+
+.task-open-button,
+.plan-task-open {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.task-open-button {
+  display: grid;
+  flex: 1;
+  gap: 9px;
+}
+
+.task-enter {
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.task-open-button:focus-visible,
+.plan-task-open:focus-visible {
+  border-radius: 8px;
+  outline: 2px solid var(--orange);
+  outline-offset: 4px;
+}
+
+.task-toggle:focus-within .task-check,
+.plan-task-toggle:focus-within > span {
+  outline: 2px solid var(--orange);
+  outline-offset: 3px;
 }
 
 .task-content {
@@ -750,7 +793,7 @@ button {
 }
 
 .task-card.is-complete .task-check,
-.plan-task.is-complete > span {
+.plan-task.is-complete .plan-task-toggle > span {
   border-color: var(--green);
   color: #fff;
   background: var(--green);
@@ -1006,10 +1049,17 @@ button {
   padding: 11px;
   border-radius: 10px;
   background: var(--surface);
-  cursor: pointer;
 }
 
-.plan-task div {
+.plan-task-open {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plan-task-open > span {
   display: grid;
 }
 
@@ -1020,6 +1070,12 @@ button {
 .plan-task small {
   margin-top: 2px;
   color: var(--muted);
+  font-size: 10px;
+}
+
+.plan-task-open b {
+  flex: 0 0 auto;
+  color: var(--green);
   font-size: 10px;
 }
 

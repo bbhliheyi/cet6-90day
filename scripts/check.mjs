@@ -66,6 +66,9 @@ for (const moduleFile of ["content", "resources", "ear-training", "lessons", "db
 if (/event\.currentTarget\.disabled\s*=/.test(appSource)) {
   throw new Error("异步按钮处理不得直接修改event.currentTarget，请先缓存元素引用");
 }
+for (const marker of ["function openTask(item, day)", "data-dashboard-open-task", "data-plan-open-task", "data-standard-open-task"]) {
+  if (!appSource.includes(marker)) throw new Error(`每日任务缺少跳转能力：${marker}`);
+}
 
 const productionFiles = ["package.json", "index.html", "src/app.js", "src/content.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/storage.js", "src/accounts.js", "src/cloud.js", "src/cloud-config.js", "src/db.js"];
 const forbiddenPatterns = ["z-ai-web-dev-sdk", "apiKey:", "CHATGLM_API_KEY", "sb_secret_"];

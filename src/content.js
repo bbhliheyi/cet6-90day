@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.5.1";
+export const APP_VERSION = "0.5.2";
 
 export const EXAM_CONFIG = Object.freeze({
   region: "吉林 · 长春",

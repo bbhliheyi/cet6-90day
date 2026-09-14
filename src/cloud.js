@@ -1,5 +1,5 @@
-import { createClient } from "./vendor/supabase.js?v=0.5.1";
-import { CLOUD_CONFIG } from "./cloud-config.js?v=0.5.1";
+import { createClient } from "./vendor/supabase.js?v=0.5.2";
+import { CLOUD_CONFIG } from "./cloud-config.js?v=0.5.2";
 
 const SYNC_META_PREFIX = "cet6-90day-cloud-sync-v1";
 const PENDING_MIGRATION_KEY = "cet6-90day-cloud-migration-v1";

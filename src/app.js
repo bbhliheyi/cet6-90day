@@ -8,11 +8,11 @@ import {
   VOCABULARY,
   buildPlan,
   dailyCoreSentences,
-} from "./content.js?v=0.5.1";
-import { RESOURCE_CATALOG } from "./resources.js?v=0.5.1";
-import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.5.1";
-import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.5.1";
-import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.5.1";
+} from "./content.js?v=0.5.2";
+import { RESOURCE_CATALOG } from "./resources.js?v=0.5.2";
+import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.5.2";
+import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.5.2";
+import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.5.2";
 import {
   authenticateLocalAccount,
   clearCloudAccount,
@@ -24,7 +24,7 @@ import {
   setCloudAccount,
   setActiveAccount,
   useGuestAccount,
-} from "./accounts.js?v=0.5.1";
+} from "./accounts.js?v=0.5.2";
 import {
   deleteStateForAccount,
   exportState,
@@ -33,7 +33,7 @@ import {
   resetState,
   saveState,
   saveStateForAccount,
-} from "./storage.js?v=0.5.1";
+} from "./storage.js?v=0.5.2";
 import {
   forceDownloadCloudState,
   forceUploadCloudState,
@@ -46,7 +46,7 @@ import {
   signUpCloud,
   stageCloudMigration,
   subscribeCloudStatus,
-} from "./cloud.js?v=0.5.1";
+} from "./cloud.js?v=0.5.2";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -74,6 +74,7 @@ let activePracticeModule = "listening";
 let activePracticeIndex = 0;
 let activeLessonId = "vocabulary-method";
 let activeEarIndex = 0;
+let activeTaskDay = null;
 let vocabularyTest = null;
 let deferredInstallPrompt = null;
 let workspaceTimer = null;
@@ -229,7 +230,37 @@ function moduleRouteForTask(item) {
   if (!item) return "plan";
   if (["vocabulary", "sentences", "eartraining", "notes"].includes(item.module)) return item.module;
   if (["listening", "reading", "writing", "translation", "speaking"].includes(item.module)) return "practice";
+  if (item.module === "review") return "notes";
+  if (["notice", "exam"].includes(item.module)) return item.id === "mock" ? "practice" : "notices";
+  if (item.module === "data") return "data";
   return "plan";
+}
+
+function taskContextForDay(day) {
+  if (day === 0) return { day: 0, title: "考前准备期", tasks: PREP_TASKS };
+  if (day >= 1 && day <= 90) return { day, title: PLAN[day - 1].title, tasks: PLAN[day - 1].tasks };
+  return currentTaskContext();
+}
+
+function openTask(item, day) {
+  if (!item) return;
+  activeTaskDay = Number.isInteger(day) && day >= 0 && day <= 90 ? day : null;
+  const route = moduleRouteForTask(item);
+  if (route === "data") {
+    renderAccountChrome();
+    $("#data-dialog").showModal();
+    return;
+  }
+  if (route === "practice") {
+    activePracticeModule = ["listening", "reading", "writing", "translation", "speaking"].includes(item.module) ? item.module : "listening";
+    activePracticeIndex = 0;
+  }
+  if (route === "plan" && day >= 1 && day <= 90) {
+    activePhase = PLAN[day - 1].phase;
+    navigate("plan", { focusDay: day });
+    return;
+  }
+  navigate(route);
 }
 
 function renderContinueLearning(context) {
@@ -297,7 +328,7 @@ function navigate(route, options = {}) {
   window.scrollTo({ top: 0, behavior: options.instant ? "auto" : "smooth" });
 
   if (route === "dashboard") renderDashboard();
-  if (route === "plan") renderPlan(options.focusToday);
+  if (route === "plan") renderPlan(options.focusDay ?? (options.focusToday ? getCurrentPlanDay() : null));
   if (route === "vocabulary") renderVocabulary();
   if (route === "sentences") renderSentences();
   if (route === "eartraining") renderEarTraining();
@@ -323,15 +354,20 @@ function renderTodayTasks(context) {
   container.innerHTML = context.tasks
     .map((item) => {
       const checked = taskIsComplete(context.day, item.id);
-      return `<label class="task-card ${checked ? "is-complete" : ""}">
-        <input type="checkbox" data-dashboard-task="${item.id}" ${checked ? "checked" : ""} />
-        <span class="task-check">✓</span>
-        <span class="task-content">
-          <small>${SKILL_LABELS[item.module] || item.module} · ${item.minutes}分钟</small>
-          <strong>${item.title}</strong>
-          <span>${item.detail}</span>
-        </span>
-      </label>`;
+      return `<article class="task-card ${checked ? "is-complete" : ""}">
+        <label class="task-toggle" title="${checked ? "取消完成" : "标记完成"}">
+          <input type="checkbox" data-dashboard-task="${escapeHtml(item.id)}" aria-label="${checked ? "取消完成" : "标记完成"}：${escapeHtml(item.title)}" ${checked ? "checked" : ""} />
+          <span class="task-check">✓</span>
+        </label>
+        <button type="button" class="task-open-button" data-dashboard-open-task="${escapeHtml(item.id)}">
+          <span class="task-content">
+            <small>${escapeHtml(SKILL_LABELS[item.module] || item.module)} · ${item.minutes}分钟</small>
+            <strong>${escapeHtml(item.title)}</strong>
+            <span>${escapeHtml(item.detail)}</span>
+          </span>
+          <span class="task-enter">进入 →</span>
+        </button>
+      </article>`;
     })
     .join("");
 
@@ -341,6 +377,9 @@ function renderTodayTasks(context) {
       toggleTask(context.day, taskData, input.checked);
     });
   });
+  $$('[data-dashboard-open-task]', container).forEach((button) => button.addEventListener("click", () => {
+    openTask(context.tasks.find((item) => item.id === button.dataset.dashboardOpenTask), context.day);
+  }));
 }
 
 function skillScores() {
@@ -416,10 +455,11 @@ function renderTodayStandard(context) {
   const phase = context.day > 0 && context.day <= 90 ? PLAN[context.day - 1].phaseLabel : "准备期";
   container.innerHTML = `<div class="card-heading"><div><p class="eyebrow">TODAY'S STANDARD · ${context.day > 0 ? `DAY ${context.day}` : "PREP"}</p><h3>今日${summary.completed === summary.total ? "已达标" : "完成标准"}</h3></div><strong class="standard-percent">${summary.percent}%</strong></div><div class="standard-progress"><i style="width:${summary.percent}%"></i></div><p class="standard-summary">已完成 <b>${summary.completed}/${summary.total}</b> 项 · ${summary.minutes}/${summary.totalMinutes} 分钟 · 阶段：${phase}</p><div class="standard-task-list">${context.tasks.map((item) => {
     const guidance = dailyTaskGuidance(context.day, item, phase) || {};
-    const route = ["vocabulary", "sentences"].includes(item.module) ? item.module : item.module === "eartraining" ? "eartraining" : item.module === "listening" ? "practice" : null;
-    return `<div class="standard-task ${taskIsComplete(context.day, item.id) ? "is-complete" : ""}"><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(guidance.quantity || item.detail)}</small><small>达标：${escapeHtml(guidance.criterion || "完成并留下可复查记录")}</small></div>${route ? `<button class="text-button" data-open-module="${route}">开始 →</button>` : ""}</div>`;
+    return `<div class="standard-task ${taskIsComplete(context.day, item.id) ? "is-complete" : ""}"><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(guidance.quantity || item.detail)}</small><small>达标：${escapeHtml(guidance.criterion || "完成并留下可复查记录")}</small></div><button class="text-button" data-standard-open-task="${escapeHtml(item.id)}">进入 →</button></div>`;
   }).join("")}</div><p class="standard-note">判定规则：所有今日任务都完成，才算“今日达标”；只完成部分任务会保留进度，但不会计入完整天数。</p>`;
-  $$('[data-open-module]', container).forEach((button) => button.addEventListener("click", () => navigate(button.dataset.openModule)));
+  $$('[data-standard-open-task]', container).forEach((button) => button.addEventListener("click", () => {
+    openTask(context.tasks.find((item) => item.id === button.dataset.standardOpenTask), context.day);
+  }));
 }
 
 function renderWeaknessReport() {
@@ -462,7 +502,7 @@ function planDayProgress(planDay) {
   return { completed, total: planDay.tasks.length };
 }
 
-function renderPlan(focusToday = false) {
+function renderPlan(focusDay = null) {
   $("#plan-completed").textContent = completedDayCount();
   $("#plan-streak").textContent = calculateStreak();
   $("#plan-weekly").textContent = completedThisWeekCount();
@@ -474,7 +514,8 @@ function renderPlan(focusToday = false) {
       const progress = planDayProgress(planDay);
       const complete = progress.completed === progress.total;
       const current = planDay.day === currentDay;
-      return `<details class="plan-day ${current ? "is-current" : ""} ${complete ? "is-complete" : ""}" id="day-${planDay.day}" ${current ? "open" : ""}>
+      const focused = planDay.day === focusDay;
+      return `<details class="plan-day ${current ? "is-current" : ""} ${complete ? "is-complete" : ""}" id="day-${planDay.day}" ${current || focused ? "open" : ""}>
         <summary>
           <span class="day-number" style="--phase-color:${planDay.phaseColor}">DAY ${planDay.day}</span>
           <span class="day-summary"><small>${planDay.dateLabel} · ${planDay.phaseLabel}</small><strong>${planDay.title}</strong></span>
@@ -484,10 +525,10 @@ function renderPlan(focusToday = false) {
         <div class="plan-day-body">
           <p>${planDay.objective}</p>
           <div class="plan-task-list">${planDay.tasks
-            .map((item) => `<label class="plan-task ${taskIsComplete(planDay.day, item.id) ? "is-complete" : ""}">
-              <input type="checkbox" data-plan-day="${planDay.day}" data-plan-task="${item.id}" ${taskIsComplete(planDay.day, item.id) ? "checked" : ""} />
-              <span>✓</span><div><strong>${item.title}</strong><small>${SKILL_LABELS[item.module]} · ${item.minutes}分钟 · ${item.detail}</small></div>
-            </label>`)
+            .map((item) => `<div class="plan-task ${taskIsComplete(planDay.day, item.id) ? "is-complete" : ""}">
+              <label class="plan-task-toggle" title="${taskIsComplete(planDay.day, item.id) ? "取消完成" : "标记完成"}"><input type="checkbox" data-plan-day="${planDay.day}" data-plan-task="${escapeHtml(item.id)}" aria-label="${taskIsComplete(planDay.day, item.id) ? "取消完成" : "标记完成"}：DAY ${planDay.day} ${escapeHtml(item.title)}" ${taskIsComplete(planDay.day, item.id) ? "checked" : ""} /><span>✓</span></label>
+              <button type="button" class="plan-task-open" data-plan-open-day="${planDay.day}" data-plan-open-task="${escapeHtml(item.id)}"><span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(SKILL_LABELS[item.module])} · ${item.minutes}分钟 · ${escapeHtml(item.detail)}</small></span><b>进入 →</b></button>
+            </div>`)
             .join("")}</div>
           <div class="assessment-line"><strong>当日验收</strong><span>${planDay.assessment}</span></div>
         </div>
@@ -502,9 +543,13 @@ function renderPlan(focusToday = false) {
       toggleTask(day, taskData, input.checked);
     });
   });
+  $$('[data-plan-open-task]').forEach((button) => button.addEventListener("click", () => {
+    const day = Number(button.dataset.planOpenDay);
+    openTask(PLAN[day - 1].tasks.find((item) => item.id === button.dataset.planOpenTask), day);
+  }));
 
-  if (focusToday && currentDay >= 1 && currentDay <= 90) {
-    requestAnimationFrame(() => $("#day-" + currentDay)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  if (focusDay >= 1 && focusDay <= 90) {
+    requestAnimationFrame(() => $("#day-" + focusDay)?.scrollIntoView({ behavior: "smooth", block: "center" }));
   }
 }
 
@@ -578,12 +623,13 @@ function escapeHtml(value = "") {
 }
 
 function learningDay() {
+  if (activeTaskDay >= 1 && activeTaskDay <= 90) return activeTaskDay;
   const day = getCurrentPlanDay();
   return day < 1 ? 1 : Math.min(90, day);
 }
 
 function markCurrentTask(module, completed) {
-  const context = currentTaskContext();
+  const context = activeTaskDay === null ? currentTaskContext() : taskContextForDay(activeTaskDay);
   const taskData = context.tasks.find((item) => item.module === module || item.id === module);
   if (!taskData || context.day > 90 || taskIsComplete(context.day, taskData.id) === completed) {
     refreshProgressViews();
@@ -1200,6 +1246,7 @@ function renderPracticeWorkspace() {
   stopWorkspaceTimer();
   window.speechSynthesis?.cancel();
   if (mediaRecorder?.state === "recording") stopRecording(recordingContext?.startId, recordingContext?.stopId);
+  $$('[data-module]').forEach((item) => item.classList.toggle("is-selected", item.dataset.module === activePracticeModule));
   if (activePracticeModule === "listening") renderListening();
   if (activePracticeModule === "reading") renderReading();
   if (activePracticeModule === "writing") renderWriting();
@@ -1663,14 +1710,17 @@ function initializePwa() {
 function initializeNavigation() {
   $$("[data-route]").forEach((item) => item.addEventListener("click", (event) => {
     event.preventDefault();
+    activeTaskDay = null;
     navigate(item.dataset.route);
   }));
   $$('[data-jump="today"]').forEach((item) => item.addEventListener("click", () => {
+    activeTaskDay = null;
     const day = getCurrentPlanDay();
     activePhase = day >= 1 && day <= 90 ? PLAN[day - 1].phase : "all";
     navigate("plan", { focusToday: true });
   }));
   $$('[data-open-lesson]').forEach((item) => item.addEventListener("click", () => {
+    activeTaskDay = null;
     activeLessonId = item.dataset.openLesson;
     navigate("lessons");
   }));
