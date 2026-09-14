@@ -77,6 +77,18 @@
    `https://librivox.org/`  
    用途：核对许可与作品状态后使用公版有声读物。
 
+9. Oxford Learner's Dictionaries
+   `https://www.oxfordlearnersdictionaries.com/`
+   用途：Oxford 3000/5000、学习者释义、搭配与语法查询。
+
+10. Cambridge English Learning English
+    `https://www.cambridgeenglish.org/learning-english/`
+    用途：分级活动、听说读写练习、写作反馈和考试准备补充。
+
+11. American English · U.S. Department of State
+    `https://americanenglish.state.gov/`
+    用途：美国英语、教师资源、课堂活动与文化主题材料。
+
 ## B-2级：商业题库与听力工具入口
 
 以下平台只在原网站或App内使用，本站不抓取、不镜像、不上传付费题目、音频、解析和账号内容。
@@ -96,6 +108,30 @@
 4. 贝壳网
    `https://www.bakclass.com/`
    用途：教育资源与测评入口；具体六级内容以登录后的平台页面为准。
+
+## B-3级：学术和开放教育资源
+
+这些入口用于补充科技、教育、社会、环境和学术讲座主题；本站只保存入口和个人笔记，不复制整套课程。
+
+1. OpenLearn · The Open University
+   `https://www.open.edu/openlearn/free-courses`
+   用途：免费短课程、学习方法和社会科学主题泛读。
+
+2. MIT OpenCourseWare
+   `https://ocw.mit.edu/`
+   用途：课程讲义、阅读清单、视频、作业和学术主题输入。
+
+3. TED-Ed
+   `https://ed.ted.com/`
+   用途：短视频听力、主旨复述、观点表达和课程问题训练。
+
+4. NPR Podcasts & Shows
+   `https://www.npr.org/podcasts-and-shows/`
+   用途：新闻、访谈、科学和社会议题泛听。
+
+5. OpenStax
+   `https://openstax.org/`
+   用途：免费、同行评审、开放许可大学教材的主题精读。
 
 ## C级：开源产品观察
 

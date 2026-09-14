@@ -8,12 +8,12 @@ import {
   VOCABULARY,
   buildPlan,
   dailyCoreSentences,
-} from "./content.js?v=0.5.5";
-import { RESOURCE_CATALOG } from "./resources.js?v=0.5.5";
-import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.5.5";
-import { MOCK_EXAMS } from "./mock-exams.js?v=0.5.5";
-import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.5.5";
-import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.5.5";
+} from "./content.js?v=0.5.6";
+import { RESOURCE_CATALOG } from "./resources.js?v=0.5.6";
+import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.5.6";
+import { MOCK_EXAMS, REAL_EXAM_INDEX } from "./mock-exams.js?v=0.5.6";
+import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.5.6";
+import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.5.6";
 import {
   authenticateLocalAccount,
   clearCloudAccount,
@@ -25,7 +25,7 @@ import {
   setCloudAccount,
   setActiveAccount,
   useGuestAccount,
-} from "./accounts.js?v=0.5.5";
+} from "./accounts.js?v=0.5.6";
 import {
   deleteStateForAccount,
   exportState,
@@ -34,7 +34,7 @@ import {
   resetState,
   saveState,
   saveStateForAccount,
-} from "./storage.js?v=0.5.5";
+} from "./storage.js?v=0.5.6";
 import {
   forceDownloadCloudState,
   forceUploadCloudState,
@@ -47,7 +47,7 @@ import {
   signUpCloud,
   stageCloudMigration,
   subscribeCloudStatus,
-} from "./cloud.js?v=0.5.5";
+} from "./cloud.js?v=0.5.6";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -77,6 +77,11 @@ let activePracticeIndex = 0;
 let activeLessonId = "vocabulary-method";
 let activeEarIndex = 0;
 let activeTaskDay = null;
+let activeMockExamId = MOCK_EXAMS[0].id;
+let activeMockYear = "all";
+let activeMockType = "all";
+let activeRealExamYear = "all";
+let activeRealExamType = "all";
 let vocabularyTest = null;
 let deferredInstallPrompt = null;
 let workspaceTimer = null;
@@ -1333,11 +1338,17 @@ function buildMockResult(exam, session, reason = "submitted") {
 }
 
 function renderMockResult(result, exam) {
-  return `<div class="mock-result-card"><div class="mock-result-score"><span>${result.totalScore}</span><div><strong>本站训练参考分</strong><small>${result.reason === "timeout" ? "时间到，系统已自动交卷" : "已完成交卷"}</small></div></div><p class="source-disclaimer">${escapeHtml(exam.sourceDetail)} 写作与翻译分数按完成度和结构做本站估算，不是官方评分。</p><div class="mock-result-grid">${result.sections.map((section) => `<article><span>${escapeHtml(section.title)}</span><strong>${section.score}%</strong><small>${section.completedCount}/${section.itemCount} 个训练单元完成</small></article>`).join("")}</div><details class="mock-result-details"><summary>查看分项结果</summary><div>${result.sections.map((section) => `<p><b>${escapeHtml(section.title)}</b>：${section.itemResults.map((item) => `${item.score}%`).join(" · ")}</p>`).join("")}</div></details><div class="mock-result-actions"><button class="primary-button" id="restart-mock-exam">再次开始</button><button class="outline-button" data-route="practice">回到专项训练</button></div></div>`;
+  return `<div class="mock-result-card"><div class="mock-result-score"><span>${result.totalScore}</span><div><strong>本站训练参考分</strong><small>${result.reason === "timeout" ? "时间到，系统已自动交卷" : "已完成交卷"}</small></div></div><p class="source-disclaimer">${escapeHtml(exam.sourceDetail)} 写作与翻译分数按完成度和结构做本站估算，不是官方评分。</p><div class="mock-result-grid">${result.sections.map((section) => `<article><span>${escapeHtml(section.title)}</span><strong>${section.score}%</strong><small>${section.completedCount}/${section.itemCount} 个训练单元完成</small></article>`).join("")}</div><details class="mock-result-details"><summary>查看分项结果</summary><div>${result.sections.map((section) => `<p><b>${escapeHtml(section.title)}</b>：${section.itemResults.map((item) => `${item.score}%`).join(" · ")}</p>`).join("")}</div></details><div class="mock-result-actions"><button class="primary-button" data-restart-mock="${escapeHtml(exam.id)}">再次开始本卷</button><button class="outline-button" data-route="practice">回到专项训练</button></div></div>`;
 }
 
-function startMockExam(exam) {
+function startMockExam(exam, { force = false } = {}) {
+  if (state.mockSession && !force) {
+    renderMockExam();
+    return;
+  }
+  stopWorkspaceTimer();
   const now = Date.now();
+  activeMockExamId = exam.id;
   state.mockSession = { examId: exam.id, sectionIndex: 0, answers: {}, startedAt: new Date(now).toISOString(), endsAt: new Date(now + exam.durationMinutes * 60 * 1000).toISOString(), updatedAt: new Date().toISOString() };
   recordActivity("tests", exam.title, "开始完整测试");
   persist();
@@ -1350,10 +1361,47 @@ function renderMockHistory(exam) {
   return `<div class="mock-history"><strong>最近测试记录</strong>${results.map((result) => `<div><span>${new Date(result.completedAt).toLocaleString("zh-CN")}</span><b>${result.totalScore}分</b><small>${result.reason === "timeout" ? "超时交卷" : "主动交卷"}</small></div>`).join("")}</div>`;
 }
 
+function mockExamCatalogMarkup() {
+  const years = [...new Set(MOCK_EXAMS.map((exam) => exam.year))];
+  const types = [...new Set(MOCK_EXAMS.map((exam) => exam.examType))];
+  const filtered = MOCK_EXAMS.filter((exam) => (activeMockYear === "all" || exam.year === activeMockYear) && (activeMockType === "all" || exam.examType === activeMockType));
+  const exams = filtered.length ? filtered : MOCK_EXAMS;
+  return `<section class="mock-catalog-panel"><div class="card-heading"><div><p class="eyebrow">PAPER SELECTOR</p><h3>选择站内完整训练卷</h3></div><span class="source-chip">固定题序 · 不随机</span></div><p class="muted">先按年份和类型筛选，再选择一套开始。当前站内是原创模拟卷；历年官方真题请看下方“真题入口索引”。</p><div class="mock-filter-row"><label>年份<select id="mock-year-filter"><option value="all" ${activeMockYear === "all" ? "selected" : ""}>全部</option>${years.map((year) => `<option value="${escapeHtml(year)}" ${activeMockYear === year ? "selected" : ""}>${escapeHtml(year)}</option>`).join("")}</select></label><label>类型<select id="mock-type-filter"><option value="all" ${activeMockType === "all" ? "selected" : ""}>全部</option>${types.map((type) => `<option value="${escapeHtml(type)}" ${activeMockType === type ? "selected" : ""}>${escapeHtml(type)}</option>`).join("")}</select></label></div><div class="mock-exam-card-grid">${exams.map((item) => `<button class="mock-exam-card ${item.id === activeMockExamId ? "is-selected" : ""}" type="button" data-select-mock="${escapeHtml(item.id)}"><span>${escapeHtml(item.year)} · ${escapeHtml(item.examType)}</span><strong>${escapeHtml(item.title)}</strong><small>${item.durationMinutes}分钟 · ${item.sections.reduce((total, section) => total + section.itemIds.length, 0)}个训练单元</small></button>`).join("")}</div></section>`;
+}
+
+function realExamIndexMarkup() {
+  const years = [...new Set(REAL_EXAM_INDEX.map((item) => item.year))];
+  const types = [...new Map(REAL_EXAM_INDEX.map((item) => [item.type, item.typeLabel])).entries()];
+  const filtered = REAL_EXAM_INDEX.filter((item) => (activeRealExamYear === "all" || item.year === activeRealExamYear) && (activeRealExamType === "all" || item.type === activeRealExamType));
+  const items = filtered;
+  return `<section class="real-exam-index"><div class="card-heading"><div><p class="eyebrow">REAL EXAM INDEX</p><h3>历年真题入口索引</h3></div><span class="source-chip">官方/外部资料</span></div><p class="muted">这里可以按年份和题型查看入口。本站不上传完整真题、音频或付费解析；请在官方入口、外部平台或你本人合法保存的材料中完成整套训练。</p><div class="mock-filter-row"><label>年份<select id="real-exam-year-filter"><option value="all" ${activeRealExamYear === "all" ? "selected" : ""}>全部年份</option>${years.map((year) => `<option value="${escapeHtml(year)}" ${activeRealExamYear === year ? "selected" : ""}>${escapeHtml(year)}</option>`).join("")}</select></label><label>类型<select id="real-exam-type-filter"><option value="all" ${activeRealExamType === "all" ? "selected" : ""}>全部题型</option>${types.map(([type, label]) => `<option value="${escapeHtml(type)}" ${activeRealExamType === type ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label></div><div class="real-exam-list">${items.length ? items.map((item) => `<article class="real-exam-item"><div><span>${escapeHtml(item.year)} · ${escapeHtml(item.typeLabel)}</span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.sourceDetail)}</small></div><div class="real-exam-links">${item.links.map((link) => `<a class="text-link" href="${link.url}" target="_blank" rel="noreferrer">${escapeHtml(link.name)} →</a>`).join("")}</div></article>`).join("") : `<p class="muted">没有符合筛选条件的入口。</p>`}</div></section>`;
+}
+
 function renderMockStart(exam, container) {
   const questionCount = exam.sections.reduce((total, section) => total + section.itemIds.length, 0);
-  container.innerHTML = `<div class="mock-overview"><div class="card-heading"><div><p class="eyebrow">FULL MOCK TEST · ORIGINAL</p><h3>${escapeHtml(exam.title)}</h3></div><span class="source-chip">${escapeHtml(exam.sourceLabel)}</span></div><p>${escapeHtml(exam.description)}</p><div class="mock-warning"><strong>先说明题源</strong><span>这是本站原创训练卷，按考试能力组织流程；不等同官方真题。官方真题只可使用你本人合法取得、并在本地保存的材料。</span></div><div class="mock-section-grid">${exam.sections.map((section) => `<article><span>${escapeHtml(section.title)}</span><strong>${section.itemIds.length}个训练单元</strong><small>${section.minutes}分钟 · ${escapeHtml(section.instruction)}</small></article>`).join("")}</div><div class="mock-start-row"><div><strong>总计 ${questionCount} 个训练单元 · ${exam.durationMinutes} 分钟</strong><small>题序固定，不随机；中途退出后可从当前部分继续。</small></div><button class="primary-button" id="start-mock-exam">开始完整测试</button></div></div><div class="mock-history-panel"><div class="card-heading"><h3>测试留存</h3><span class="muted">当前账户</span></div>${renderMockHistory(exam)}</div>`;
-  $("#start-mock-exam").addEventListener("click", () => startMockExam(exam));
+  container.innerHTML = `${mockExamCatalogMarkup()}<div class="mock-overview"><div class="card-heading"><div><p class="eyebrow">FULL MOCK TEST · ORIGINAL</p><h3>${escapeHtml(exam.title)}</h3></div><span class="source-chip">${escapeHtml(exam.sourceLabel)}</span></div><p>${escapeHtml(exam.description)}</p><div class="mock-warning"><strong>先说明题源</strong><span>这是本站原创训练卷，按考试能力组织流程；不等同官方真题。官方真题只可使用你本人合法取得、并在本地保存的材料。</span></div><div class="mock-section-grid">${exam.sections.map((section) => `<article><span>${escapeHtml(section.title)}</span><strong>${section.itemIds.length}个训练单元</strong><small>${section.minutes}分钟 · ${escapeHtml(section.instruction)}</small></article>`).join("")}</div><div class="mock-start-row"><div><strong>总计 ${questionCount} 个训练单元 · ${exam.durationMinutes} 分钟</strong><small>题序固定，不随机；保存退出后重新进入会继续剩余时间；点击“重开本卷”才会重新计时。</small></div><div class="mock-start-actions"><button class="outline-button" id="exit-mock-selection">暂不开始，返回首页</button><button class="primary-button" data-start-mock="${escapeHtml(exam.id)}">开始完整测试</button></div></div></div><div class="mock-history-panel"><div class="card-heading"><h3>测试留存</h3><span class="muted">当前账户 · ${escapeHtml(exam.title)}</span></div>${renderMockHistory(exam)}</div>${realExamIndexMarkup()}`;
+  $("#mock-year-filter").addEventListener("change", (event) => {
+    activeMockYear = event.target.value;
+    renderMockExam();
+  });
+  $("#mock-type-filter").addEventListener("change", (event) => {
+    activeMockType = event.target.value;
+    renderMockExam();
+  });
+  $("#real-exam-year-filter").addEventListener("change", (event) => {
+    activeRealExamYear = event.target.value;
+    renderMockExam();
+  });
+  $("#real-exam-type-filter").addEventListener("change", (event) => {
+    activeRealExamType = event.target.value;
+    renderMockExam();
+  });
+  $$('[data-select-mock]').forEach((button) => button.addEventListener("click", () => {
+    activeMockExamId = button.dataset.selectMock;
+    renderMockExam();
+  }));
+  $$('[data-start-mock]').forEach((button) => button.addEventListener("click", () => startMockExam(mockExamById(button.dataset.startMock))));
+  $("#exit-mock-selection").addEventListener("click", () => navigate("dashboard"));
 }
 
 function mockRadioMarkup(item, session) {
@@ -1389,7 +1437,10 @@ function startMockTimer(exam, session) {
     const remaining = Math.max(0, (new Date(session.endsAt).getTime() - Date.now()) / 1000);
     display.textContent = mockTimeLabel(remaining);
     display.classList.toggle("is-warning", remaining <= 300);
-    if (remaining <= 0) finishMockExam("timeout");
+    if (remaining <= 0) {
+      stopWorkspaceTimer();
+      finishMockExam("timeout");
+    }
   };
   update();
   workspaceTimer = setInterval(update, 1000);
@@ -1432,6 +1483,17 @@ function bindMockInputs(exam, section, session) {
   $("#submit-mock-exam")?.addEventListener("click", () => {
     if (confirm("确定现在交卷吗？未填写的题目会按未作答计入复盘。")) finishMockExam("submitted");
   });
+  $("#restart-active-mock")?.addEventListener("click", () => {
+    if (confirm(`重新开始会清空本卷当前答案，并从完整的${exam.durationMinutes}分钟重新计时。确定重开吗？`)) startMockExam(exam, { force: true });
+  });
+  $("#cancel-active-mock")?.addEventListener("click", () => {
+    if (!confirm("退出本次测试将删除当前未交卷答案，但不会删除历史测试记录。确定退出吗？")) return;
+    stopWorkspaceTimer();
+    state.mockSession = null;
+    recordActivity("tests", exam.title, "退出未交卷的完整测试");
+    persist();
+    renderMockExam();
+  });
   $("#save-mock-exit")?.addEventListener("click", () => {
     recordActivity("tests", exam.title, "完整测试已保存，可继续作答");
     persist();
@@ -1456,20 +1518,21 @@ function finishMockExam(reason = "submitted") {
 function renderMockExam() {
   const container = $("#mock-exam-workspace");
   if (!container) return;
-  const exam = mockExamById(state.mockSession?.examId || MOCK_EXAMS[0].id);
+  const exam = mockExamById(state.mockSession?.examId || activeMockExamId);
   if (!state.mockSession) {
     const latest = (state.mockResults || []).find((result) => result.examId === exam.id);
     renderMockStart(exam, container);
     if (latest) container.insertAdjacentHTML("afterbegin", renderMockResult(latest, exam));
     $$('[data-route="practice"]', container).forEach((button) => button.addEventListener("click", () => navigate("practice")));
-    $("#restart-mock-exam")?.addEventListener("click", () => startMockExam(exam));
+    $$('[data-restart-mock]', container).forEach((button) => button.addEventListener("click", () => startMockExam(mockExamById(button.dataset.restartMock), { force: true })));
     return;
   }
   const session = state.mockSession;
   const section = exam.sections[Math.min(exam.sections.length - 1, session.sectionIndex)] || exam.sections[0];
   const sectionIndex = exam.sections.indexOf(section);
-  container.innerHTML = `<div class="mock-test-top"><div><p class="eyebrow">FULL MOCK TEST · ${sectionIndex + 1}/${exam.sections.length}</p><h3>${escapeHtml(exam.title)}</h3><small>${escapeHtml(exam.sourceLabel)} · 题序固定 · 自动保存</small></div><div class="mock-timer-box"><small>剩余时间</small><strong id="mock-timer">--:--</strong></div></div><div class="mock-section-tabs">${exam.sections.map((item, index) => `<span class="${index === sectionIndex ? "is-active" : ""} ${index < sectionIndex ? "is-done" : ""}">${index + 1}. ${escapeHtml(item.title)}<small>${item.minutes}分钟</small></span>`).join("")}</div><div class="mock-section-heading"><div><p class="eyebrow">SECTION ${sectionIndex + 1}</p><h3>${escapeHtml(section.title)}</h3><p>${escapeHtml(section.instruction)}</p></div><span>${section.itemIds.length}个训练单元</span></div><div class="mock-question-list">${section.itemIds.map((itemId, index) => { const item = mockExamItem(section, itemId); return item ? mockItemMarkup(item, section, session, index) : `<p class="muted">题目 ${escapeHtml(itemId)} 暂不可用。</p>`; }).join("")}</div><div class="mock-navigation"><button class="outline-button" id="save-mock-exit">保存并退出</button><div><button class="outline-button" id="mock-prev-section" ${sectionIndex === 0 ? "disabled" : ""}>上一部分</button>${sectionIndex === exam.sections.length - 1 ? `<button class="primary-button" id="submit-mock-exam">交卷并查看结果</button>` : `<button class="primary-button" id="mock-next-section">下一部分 →</button>`}</div></div><p class="source-disclaimer">${escapeHtml(exam.sourceDetail)} 页面离开后答案仍保留在当前账户；录音和外部材料不会上传到云端。</p>`;
+  container.innerHTML = `<div class="mock-test-top"><div><p class="eyebrow">FULL MOCK TEST · ${sectionIndex + 1}/${exam.sections.length}</p><h3>${escapeHtml(exam.title)}</h3><small>${escapeHtml(exam.sourceLabel)} · 题序固定 · 自动保存</small></div><div class="mock-test-top-actions"><button class="ghost-button" id="restart-active-mock">重开本卷</button><button class="ghost-button" id="cancel-active-mock">退出测试</button><div class="mock-timer-box"><small>剩余时间</small><strong id="mock-timer">--:--</strong></div></div></div><div class="mock-section-tabs">${exam.sections.map((item, index) => `<span class="${index === sectionIndex ? "is-active" : ""} ${index < sectionIndex ? "is-done" : ""}">${index + 1}. ${escapeHtml(item.title)}<small>${item.minutes}分钟</small></span>`).join("")}</div><div class="mock-section-heading"><div><p class="eyebrow">SECTION ${sectionIndex + 1}</p><h3>${escapeHtml(section.title)}</h3><p>${escapeHtml(section.instruction)}</p></div><span>${section.itemIds.length}个训练单元</span></div><div class="mock-question-list">${section.itemIds.map((itemId, index) => { const item = mockExamItem(section, itemId); return item ? mockItemMarkup(item, section, session, index) : `<p class="muted">题目 ${escapeHtml(itemId)} 暂不可用。</p>`; }).join("")}</div><div class="mock-navigation"><button class="outline-button" id="save-mock-exit">保存并退出</button><button class="outline-button" id="cancel-active-mock-bottom">退出本次测试</button><div><button class="outline-button" id="mock-prev-section" ${sectionIndex === 0 ? "disabled" : ""}>上一部分</button>${sectionIndex === exam.sections.length - 1 ? `<button class="primary-button" id="submit-mock-exam">交卷并查看结果</button>` : `<button class="primary-button" id="mock-next-section">下一部分 →</button>`}</div></div><p class="source-disclaimer">${escapeHtml(exam.sourceDetail)} 页面离开后答案仍保留在当前账户；录音和外部材料不会上传到云端。</p>`;
   bindMockInputs(exam, section, session);
+  $("#cancel-active-mock-bottom")?.addEventListener("click", () => $("#cancel-active-mock")?.click());
   startMockTimer(exam, session);
 }
 

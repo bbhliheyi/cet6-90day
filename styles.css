@@ -3341,6 +3341,8 @@ dialog::backdrop {
 .mock-overview,
 .mock-history-panel,
 .mock-result-card,
+.mock-catalog-panel,
+.real-exam-index,
 .mock-test-top,
 .mock-section-heading,
 .mock-question,
@@ -3357,6 +3359,121 @@ dialog::backdrop {
   margin: 16px 0;
   color: var(--muted);
   line-height: 1.8;
+}
+
+.mock-catalog-panel,
+.real-exam-index {
+  display: grid;
+  gap: 14px;
+  padding: 23px;
+}
+
+.mock-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.mock-filter-row label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.mock-filter-row select {
+  min-width: 150px;
+  padding: 9px 11px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.mock-exam-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mock-exam-card {
+  display: grid;
+  gap: 6px;
+  min-height: 112px;
+  padding: 14px;
+  text-align: left;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  cursor: pointer;
+}
+
+.mock-exam-card:hover,
+.mock-exam-card.is-selected {
+  border-color: #8fb9a8;
+  background: #eaf5ef;
+}
+
+.mock-exam-card span,
+.mock-exam-card small,
+.real-exam-item span,
+.real-exam-item small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.mock-exam-card strong {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.mock-start-actions,
+.mock-test-top-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.real-exam-index {
+  margin-top: 2px;
+}
+
+.real-exam-list {
+  display: grid;
+  gap: 9px;
+}
+
+.real-exam-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.real-exam-item > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.real-exam-item strong {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.real-exam-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px 12px;
+  min-width: 220px;
 }
 
 .mock-warning {
@@ -3599,7 +3716,8 @@ dialog::backdrop {
   .section-actions button { flex: 1; }
   .matching-paragraphs,
   .mock-section-grid,
-  .mock-result-grid { grid-template-columns: 1fr 1fr; }
+  .mock-result-grid,
+  .mock-exam-card-grid { grid-template-columns: 1fr 1fr; }
   .matching-statements label,
   .mock-start-row,
   .mock-navigation,
@@ -3609,8 +3727,12 @@ dialog::backdrop {
   .mock-navigation > div button { flex: 1; }
   .mock-timer-box { width: 100%; text-align: left; }
   .mock-section-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .mock-start-row button { width: 100%; }
+  .mock-start-actions,
+  .mock-test-top-actions { width: 100%; justify-content: flex-start; }
+  .mock-start-actions button { flex: 1; }
   .mock-result-actions button { flex: 1; }
+  .real-exam-item { flex-direction: column; }
+  .real-exam-links { justify-content: flex-start; min-width: 0; }
   .cloze-passage select, .cloze-text select { min-width: 94px; }
   .mobile-nav { grid-template-columns: repeat(8, 1fr); }
 }
@@ -3618,7 +3740,8 @@ dialog::backdrop {
 @media (max-width: 420px) {
   .matching-paragraphs,
   .mock-section-grid,
-  .mock-result-grid { grid-template-columns: 1fr; }
+  .mock-result-grid,
+  .mock-exam-card-grid { grid-template-columns: 1fr; }
   .mock-history > div { grid-template-columns: 1fr auto; }
   .mock-history > div small { grid-column: 1 / -1; }
 }
