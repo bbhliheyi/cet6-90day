@@ -8,12 +8,12 @@ import {
   VOCABULARY,
   buildPlan,
   dailyCoreSentences,
-} from "./content.js?v=0.5.4";
-import { RESOURCE_CATALOG } from "./resources.js?v=0.5.4";
-import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.5.4";
-import { MOCK_EXAMS } from "./mock-exams.js?v=0.5.4";
-import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.5.4";
-import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.5.4";
+} from "./content.js?v=0.5.5";
+import { RESOURCE_CATALOG } from "./resources.js?v=0.5.5";
+import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.5.5";
+import { MOCK_EXAMS } from "./mock-exams.js?v=0.5.5";
+import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.5.5";
+import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.5.5";
 import {
   authenticateLocalAccount,
   clearCloudAccount,
@@ -25,7 +25,7 @@ import {
   setCloudAccount,
   setActiveAccount,
   useGuestAccount,
-} from "./accounts.js?v=0.5.4";
+} from "./accounts.js?v=0.5.5";
 import {
   deleteStateForAccount,
   exportState,
@@ -34,7 +34,7 @@ import {
   resetState,
   saveState,
   saveStateForAccount,
-} from "./storage.js?v=0.5.4";
+} from "./storage.js?v=0.5.5";
 import {
   forceDownloadCloudState,
   forceUploadCloudState,
@@ -47,7 +47,7 @@ import {
   signUpCloud,
   stageCloudMigration,
   subscribeCloudStatus,
-} from "./cloud.js?v=0.5.4";
+} from "./cloud.js?v=0.5.5";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];

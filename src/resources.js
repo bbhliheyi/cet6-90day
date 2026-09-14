@@ -41,6 +41,19 @@ export const RESOURCE_CATALOG = Object.freeze([
     ],
   },
   {
+    id: "commercial-tools",
+    title: "商业题库与听力工具（外部使用）",
+    description: "这些平台保留在原网站或App内使用；本站只提供入口、使用建议和个人学习记录，不镜像题目、音频、解析或付费内容。",
+    type: "外部工具",
+    tone: "reference",
+    items: [
+      { name: "星火英语", modules: "四六级真题、专项训练、课程与解析", access: "外部官网/App", url: "https://www.sparke.cn/", detail: "优先用于阶段性真题训练和考试流程模拟；分数可手动记录回本站。" },
+      { name: "可可英语", modules: "四六级听力、听写、外刊与综合英语", access: "外部网站/App", url: "https://www.kekenet.com/", detail: "适合补充听写、新闻和外刊输入；材料版权以原站标注为准。" },
+      { name: "每日英语听力", modules: "听力、变速、循环、听写、跟读", access: "外部App/网站", url: "https://www.eudic.net/v4/en/app/ting", detail: "适合磨耳朵和精听流程；不要将原站音频重新上传到本站或云端。" },
+      { name: "贝壳网", modules: "教育资源、测评与学校学习资源", access: "外部平台", url: "https://www.bakclass.com/", detail: "更适合作为补充资源入口；如果你指的是其他“贝壳”产品，请以具体链接为准。" },
+    ],
+  },
+  {
     id: "reading-writing",
     title: "阅读、写作与语法",
     description: "用于扩展英文输入、核对写作结构和语言问题，不作为CET官方评分来源。",
