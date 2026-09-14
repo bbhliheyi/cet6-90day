@@ -11,7 +11,7 @@
     <title>大学英语六级 · 90天通关训练营</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=0.6.0" />
+    <link rel="stylesheet" href="./styles.css?v=0.7.0" />
   </head>
   <body>
     <div class="app-shell">
@@ -174,7 +174,8 @@
                 <select id="vocab-book-select">
                   <option value="cet6">六级重点1253词 + 精讲补充</option>
                   <option value="high-frequency">考试文本高频2104词</option>
-                  <option value="all">四六级全大纲5278词 + 精讲补充</option>
+                  <option value="all">全词库5278词 + 63条搭配</option>
+                  <option value="phrases">六级高频搭配63条</option>
                 </select>
               </label>
               <label>每日新词
@@ -205,6 +206,22 @@
             <summary><span><strong>浏览海量词表</strong><small>搜索单词、中文释义或主题分类，查看当前词表中的全部词条</small></span><b>展开 →</b></summary>
             <div class="vocab-browser-tools">
               <input id="vocab-search" type="search" placeholder="例如：environment / 环境 / 科学技术" autocomplete="off" />
+              <select id="vocab-browser-scope" aria-label="词库范围">
+                <option value="current">搜索当前词表</option>
+                <option value="all">搜索全部词库</option>
+              </select>
+              <select id="vocab-browser-status" aria-label="学习状态">
+                <option value="all">全部状态</option>
+                <option value="due">今日到期</option>
+                <option value="new">未学习</option>
+                <option value="forgot">易忘</option>
+                <option value="unsure">模糊</option>
+                <option value="known">已掌握</option>
+                <option value="reviewed">已复习</option>
+              </select>
+              <select id="vocab-browser-topic" aria-label="主题筛选">
+                <option value="all">全部主题</option>
+              </select>
               <span id="vocab-search-count">0 个结果</span>
             </div>
             <div id="vocab-browser-results" class="vocab-browser-results"></div>
@@ -241,6 +258,7 @@
                 <div class="big-stat"><strong id="vocab-today-count">0</strong><span id="vocab-today-target">/ 30</span></div>
                 <div class="progress-track"><span id="vocab-today-bar"></span></div>
                 <p class="vocab-review-line">复习完成 <strong id="vocab-reviewed-today">0</strong> · 新学 <strong id="vocab-new-today">0</strong></p>
+                <div class="vocab-metric-row"><span>累计正确率 <strong id="vocab-accuracy">0%</strong></span><span>连续复习 <strong id="vocab-streak">0天</strong></span></div>
               </article>
               <article class="panel">
                 <p class="eyebrow">掌握分布</p>
@@ -548,6 +566,6 @@
 
     <div id="selection-translator" class="selection-translator" hidden role="dialog" aria-label="选区翻译工具"></div>
 
-    <script type="module" src="./src/app.js?v=0.6.0"></script>
+    <script type="module" src="./src/app.js?v=0.7.0"></script>
   </body>
 </html>

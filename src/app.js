@@ -9,13 +9,14 @@ import {
   VOCABULARY,
   buildPlan,
   dailyCoreSentences,
-} from "./content.js?v=0.6.0";
-import { RESOURCE_CATALOG } from "./resources.js?v=0.6.0";
-import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.6.0";
-import { MOCK_EXAMS, REAL_EXAM_INDEX } from "./mock-exams.js?v=0.6.0";
-import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.6.0";
-import { CET_VOCABULARY_DATA } from "./vocabulary-bank.js?v=0.6.0";
-import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.6.0";
+} from "./content.js?v=0.7.0";
+import { RESOURCE_CATALOG } from "./resources.js?v=0.7.0";
+import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.7.0";
+import { MOCK_EXAMS, REAL_EXAM_INDEX } from "./mock-exams.js?v=0.7.0";
+import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.7.0";
+import { CET_VOCABULARY_DATA } from "./vocabulary-bank.js?v=0.7.0";
+import { VOCABULARY_ENRICHMENT_MAP, VOCABULARY_PHRASES } from "./vocabulary-enrichment.js?v=0.7.0";
+import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.7.0";
 import {
   authenticateLocalAccount,
   clearCloudAccount,
@@ -27,7 +28,7 @@ import {
   setCloudAccount,
   setActiveAccount,
   useGuestAccount,
-} from "./accounts.js?v=0.6.0";
+} from "./accounts.js?v=0.7.0";
 import {
   deleteStateForAccount,
   exportState,
@@ -36,7 +37,7 @@ import {
   resetState,
   saveState,
   saveStateForAccount,
-} from "./storage.js?v=0.6.0";
+} from "./storage.js?v=0.7.0";
 import {
   forceDownloadCloudState,
   forceUploadCloudState,
@@ -49,7 +50,7 @@ import {
   signUpCloud,
   stageCloudMigration,
   subscribeCloudStatus,
-} from "./cloud.js?v=0.6.0";
+} from "./cloud.js?v=0.7.0";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -70,7 +71,11 @@ const ROUTE_TITLES = Object.freeze({
 });
 
 const PLAN = buildPlan();
-const ENRICHED_VOCABULARY = new Map(VOCABULARY.map((entry) => [entry.word.toLocaleLowerCase(), entry]));
+const ENRICHED_VOCABULARY = new Map();
+[...VOCABULARY, ...VOCABULARY_ENRICHMENT_MAP.values()].forEach((entry) => {
+  const key = entry.word.toLocaleLowerCase();
+  ENRICHED_VOCABULARY.set(key, { ...(ENRICHED_VOCABULARY.get(key) || {}), ...entry });
+});
 const DATA_VOCABULARY_BANK = CET_VOCABULARY_DATA.map((row, index) => {
   const [word, meaning, frequency, cet6, category, subcategory, alternate] = row;
   const enriched = ENRICHED_VOCABULARY.get(word.toLocaleLowerCase());
@@ -84,16 +89,29 @@ const DATA_VOCABULARY_BANK = CET_VOCABULARY_DATA.map((row, index) => {
     subcategory: subcategory || "",
     alternate: alternate || "",
     pos: enriched?.pos || inferVocabularyPartOfSpeech(word, meaning),
-    example: enriched?.example || `In this passage, “${word}” expresses the idea of “${meaning}”.`,
-    collocation: enriched?.collocation || "",
+    example: enriched?.example || enriched?.listening || `This report examines how ${word} influences everyday decisions.`,
+    collocation: enriched?.collocation || enriched?.collocations || "",
+    collocations: enriched?.collocations || enriched?.collocation || "",
     ipa: enriched?.ipa || "",
+    root: enriched?.root || "",
+    family: enriched?.family || "",
+    synonyms: enriched?.synonyms || alternate || "",
+    writing: enriched?.writing || "",
+    translation: enriched?.translation || "",
+    listening: enriched?.listening || "",
+    topic: enriched?.topic || category || "综合语境",
+    examFocus: enriched?.examFocus || "结合词义、词性和上下文判断，避免只记单一中文释义。",
     enriched: Boolean(enriched),
+    isPhrase: false,
+    sourceType: enriched?.sourceType || "open-data",
+    sourceLabel: enriched?.sourceLabel || "开放四六级词表",
+    sourceDetail: enriched?.sourceDetail || "开放数据词表；本站仅补充学习字段，不复制商业题库内容。",
   });
 });
 const DATA_VOCABULARY_WORDS = new Set(DATA_VOCABULARY_BANK.map((entry) => entry.word.toLocaleLowerCase()));
-const VOCABULARY_BANK = Object.freeze([
-  ...DATA_VOCABULARY_BANK,
-  ...VOCABULARY.filter((entry) => !DATA_VOCABULARY_WORDS.has(entry.word.toLocaleLowerCase())).map((entry, index) => Object.freeze({
+const ORIGINAL_VOCABULARY_BANK = VOCABULARY.filter((entry) => !DATA_VOCABULARY_WORDS.has(entry.word.toLocaleLowerCase())).map((entry, index) => {
+  const enriched = ENRICHED_VOCABULARY.get(entry.word.toLocaleLowerCase());
+  return Object.freeze({
     ...entry,
     frequency: 0,
     frequencyRank: CET_VOCABULARY_DATA.length + index + 1,
@@ -102,9 +120,40 @@ const VOCABULARY_BANK = Object.freeze([
     subcategory: "本站扩充",
     alternate: "",
     ipa: "",
+    root: enriched?.root || "",
+    family: enriched?.family || "",
+    synonyms: enriched?.synonyms || "",
+    collocations: enriched?.collocations || enriched?.collocation || entry.collocation || "",
+    writing: enriched?.writing || "",
+    translation: enriched?.translation || "",
+    listening: enriched?.listening || "",
+    topic: enriched?.topic || "六级核心表达",
+    examFocus: enriched?.examFocus || "结合词义、词性和上下文判断，优先掌握高频搭配。",
     enriched: true,
-  })),
+    isPhrase: false,
+    sourceType: "original-modeled",
+    sourceLabel: "本站原创精讲词",
+    sourceDetail: "依据六级能力要求独立编写，不复制真题、商业题库或付费解析。",
+  });
+});
+const VOCABULARY_BANK = Object.freeze([
+  ...DATA_VOCABULARY_BANK,
+  ...ORIGINAL_VOCABULARY_BANK,
 ]);
+const PHRASE_VOCABULARY_BANK = Object.freeze(VOCABULARY_PHRASES.map((entry, index) => Object.freeze({
+  ...entry,
+  frequencyRank: CET_VOCABULARY_DATA.length + VOCABULARY_BANK.length + index + 1,
+  root: "",
+  family: "",
+  synonyms: entry.alternate || "",
+  collocations: entry.collocation,
+  writing: entry.example,
+  translation: entry.meaning,
+  listening: entry.example,
+  topic: entry.category,
+  examFocus: "先理解表达功能，再替换到自己的写作、翻译或口语句子中。",
+})));
+const VOCABULARY_LIBRARY = Object.freeze([...VOCABULARY_BANK, ...PHRASE_VOCABULARY_BANK]);
 let state = loadState();
 let currentRoute = "dashboard";
 let currentWordIndex = 0;
@@ -696,7 +745,7 @@ function renderPlan(focusDay = null) {
 }
 
 function vocabularyRecord(word) {
-  return state.vocabulary[word] || { level: 0, status: "new", lapses: 0, reviews: 0, correctStreak: 0, history: [], nextReviewAt: null };
+  return state.vocabulary[word] || { level: 0, status: "new", lapses: 0, reviews: 0, gradedReviews: 0, correctReviews: 0, correctStreak: 0, history: [], nextReviewAt: null };
 }
 
 function inferVocabularyPartOfSpeech(word, meaning) {
@@ -714,11 +763,16 @@ function vocabularySettings() {
 
 function vocabularyBookEntries() {
   const { book } = vocabularySettings();
-  if (book === "all") return VOCABULARY_BANK;
+  if (book === "phrases") return PHRASE_VOCABULARY_BANK;
+  if (book === "all") return VOCABULARY_LIBRARY;
   if (book === "high-frequency") return VOCABULARY_BANK.filter((entry) => entry.frequency >= 40);
   return VOCABULARY_BANK
     .filter((entry) => entry.cet6)
     .sort((left, right) => Number(right.enriched) - Number(left.enriched) || left.frequencyRank - right.frequencyRank);
+}
+
+function vocabularyLibraryEntries() {
+  return VOCABULARY_LIBRARY;
 }
 
 function vocabularyTodaySummary(entries = vocabularyBookEntries()) {
@@ -748,7 +802,7 @@ function vocabularyQueue(entries = vocabularyBookEntries()) {
 
 function currentVocabularyEntry() {
   if (forcedVocabularyWord) {
-    const forced = vocabularyBookEntries().find((entry) => entry.word === forcedVocabularyWord);
+    const forced = vocabularyLibraryEntries().find((entry) => entry.word === forcedVocabularyWord);
     if (forced) return forced;
     forcedVocabularyWord = null;
   }
@@ -775,6 +829,7 @@ function vocabularyIpa(entry) {
 }
 
 function vocabularyExamPoint(entry) {
+  if (entry.examFocus) return entry.examFocus;
   const frequencyPoint = entry.frequency >= 40
     ? `高频层：相关考试文本统计出现 ${entry.frequency} 次，优先掌握语境义。`
     : entry.cet6
@@ -796,6 +851,42 @@ function vocabularyCloze(entry) {
   return replaced === entry.example ? `In this passage, “______” expresses the idea of “${entry.meaning}”.` : replaced;
 }
 
+function vocabularyEnrichmentMarkup(entry) {
+  const rows = [
+    entry.root ? ["词根联想", entry.root] : null,
+    entry.family ? ["词族", entry.family] : null,
+    entry.synonyms ? ["同义替换", entry.synonyms] : null,
+    entry.collocations ? ["高频搭配", entry.collocations] : null,
+    entry.writing ? ["写作可用", entry.writing] : null,
+    entry.translation ? ["翻译可用", entry.translation] : null,
+    entry.listening ? ["听力语境", entry.listening] : null,
+  ].filter(Boolean);
+  if (!rows.length) return "";
+  return `<details class="word-enrichment"><summary>展开词根、词族与产出用法</summary><div class="word-enrichment-grid">${rows.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><p>${escapeHtml(value)}</p></div>`).join("")}</div><small class="word-source-note">${escapeHtml(entry.sourceLabel || "本站词汇学习字段")}</small></details>`;
+}
+
+function vocabularyAccuracy(entries = vocabularyBookEntries()) {
+  const totals = entries.reduce((summary, entry) => {
+    const record = vocabularyRecord(entry.word);
+    const history = (record.history || []).filter((item) => ["known", "forgot", "unsure"].includes(item.result));
+    summary.graded += Number.isFinite(record.gradedReviews) ? record.gradedReviews : history.length;
+    summary.correct += Number.isFinite(record.correctReviews) ? record.correctReviews : history.filter((item) => item.result === "known").length;
+    return summary;
+  }, { graded: 0, correct: 0 });
+  return Math.round((totals.correct / Math.max(1, totals.graded)) * 100);
+}
+
+function vocabularyReviewStreak() {
+  const dates = new Set(Object.values(state.vocabulary || {}).flatMap((record) => (record.history || []).map((item) => item.reviewedAt?.slice(0, 10)).filter(Boolean)));
+  let streak = 0;
+  const cursor = new Date(`${todayInChina()}T12:00:00+08:00`);
+  while (dates.has(cursor.toISOString().slice(0, 10))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
 function renderVocabularyStats() {
   const entries = vocabularyBookEntries();
   const records = entries.map((entry) => vocabularyRecord(entry.word));
@@ -808,6 +899,7 @@ function renderVocabularyStats() {
   const due = queue.filter((entry) => vocabularyRecord(entry.word).status !== "new").length;
   const newRemaining = queue.length - due;
   const target = summary.completedToday + due + newRemaining;
+  const accuracy = vocabularyAccuracy(entries);
   $("#vocab-today-count").textContent = summary.completedToday;
   $("#vocab-today-target").textContent = `/ ${target}`;
   $("#vocab-today-bar").style.width = `${Math.min(100, (summary.completedToday / Math.max(1, target)) * 100)}%`;
@@ -816,6 +908,8 @@ function renderVocabularyStats() {
   $("#vocab-review-due").textContent = due;
   $("#vocab-new-remaining").textContent = newRemaining;
   $("#vocab-book-total").textContent = entries.length;
+  $("#vocab-accuracy").textContent = `${accuracy}%`;
+  $("#vocab-streak").textContent = `${vocabularyReviewStreak()}天`;
   $("#vocab-master-rate").textContent = `${rate}%`;
   $("#known-count").textContent = known;
   $("#unsure-count").textContent = unsure;
@@ -856,7 +950,7 @@ function renderVocabulary() {
   const revealedWord = mode === "meaning" ? "" : `<h4>${escapeHtml(entry.word)}</h4>`;
   card.dataset.status = record.status;
   card.classList.toggle("is-revealed", vocabularyCardRevealed);
-  card.innerHTML = `<div class="word-card-top"><span>${isForcedEntry ? "词表浏览" : `${queuePosition + 1} / ${queue.length}`} · ${record.status === "new" ? "新词" : "复习"}</span><div><span class="vocab-mode-badge">${settings.mode === "smart" ? `智能 · ${vocabularyModeLabel(mode)}` : vocabularyModeLabel(mode)}</span><button class="icon-button" type="button" data-vocab-speak aria-label="朗读单词">🔊</button></div></div><div class="word-main">${prompt}${!vocabularyCardRevealed ? `<button class="reveal-button" type="button" data-vocab-reveal>${mode === "listening" ? "显示答案" : "点击翻面"}</button>` : `<div class="word-answer">${revealedWord}<strong>${escapeHtml(entry.meaning)}</strong>${vocabularyIpa(entry) ? `<span class="word-ipa">${escapeHtml(vocabularyIpa(entry))}</span>` : ""}<p>${escapeHtml(entry.example)}</p><small>${entry.collocation ? `搭配：${escapeHtml(entry.collocation)} · ` : ""}${entry.enriched ? "本站原创例句" : "词义语境例句"}</small><div class="exam-point-box"><span>真题能力点</span><strong>${entry.cet6 ? "六级重点" : "大纲词"} · 词频序位 #${entry.frequencyRank}</strong><p>${escapeHtml(vocabularyExamPoint(entry))}</p></div><button class="tap-next-hint" type="button" data-vocab-next-default>再点一次进入下一个 →</button></div>`}</div><div class="word-actions"><button class="memory-button forgot" type="button" data-memory="forgot">← 忘记 / 左滑</button><button class="memory-button unsure" type="button" data-memory="unsure">模糊 / 点击继续</button><button class="memory-button known" type="button" data-memory="known">掌握 / 右滑 →</button></div><div class="word-swipe-hint">点击翻面，再次点击继续 · 左滑忘记 · 右滑掌握</div>`;
+  card.innerHTML = `<div class="word-card-top"><span>${isForcedEntry ? "词表浏览" : `${queuePosition + 1} / ${queue.length}`} · ${record.status === "new" ? "新词" : "复习"}</span><div><span class="vocab-mode-badge">${settings.mode === "smart" ? `智能 · ${vocabularyModeLabel(mode)}` : vocabularyModeLabel(mode)}</span><button class="icon-button" type="button" data-vocab-speak aria-label="朗读单词">🔊</button></div></div><div class="word-main">${prompt}${!vocabularyCardRevealed ? `<button class="reveal-button" type="button" data-vocab-reveal>${mode === "listening" ? "显示答案" : "点击翻面"}</button>` : `<div class="word-answer">${revealedWord}<strong>${escapeHtml(entry.meaning)}</strong>${vocabularyIpa(entry) ? `<span class="word-ipa">${escapeHtml(vocabularyIpa(entry))}</span>` : ""}<p>${escapeHtml(entry.example)}</p><small>${entry.collocations ? `搭配：${escapeHtml(entry.collocations)} · ` : ""}${entry.enriched ? "本站原创学习字段" : "开放词表语境"}</small><div class="exam-point-box"><span>${entry.isPhrase ? "六级产出能力点" : "真题能力点"}</span><strong>${entry.cet6 ? "六级重点" : "大纲词"} · ${escapeHtml(entry.topic || "综合语境")}</strong><p>${escapeHtml(vocabularyExamPoint(entry))}</p></div>${vocabularyEnrichmentMarkup(entry)}<button class="tap-next-hint" type="button" data-vocab-next-default>再点一次进入下一个 →</button></div>`}</div><div class="word-actions"><button class="memory-button forgot" type="button" data-memory="forgot">← 忘记 / 左滑</button><button class="memory-button unsure" type="button" data-memory="unsure">模糊 / 点击继续</button><button class="memory-button known" type="button" data-memory="known">掌握 / 右滑 →</button></div><div class="word-swipe-hint">点击翻面，再次点击继续 · 左滑忘记 · 右滑掌握</div>`;
   renderMemoryProfile(entry);
   renderSavedVocabulary();
   renderVocabularyBrowser();
@@ -868,14 +962,39 @@ function renderVocabularyBrowser() {
   const more = $("#vocab-load-more");
   if (!container || !count || !more) return;
   const query = normalizeSelectionText($("#vocab-search")?.value || "").toLocaleLowerCase();
-  const entries = vocabularyBookEntries().filter((entry) => !query || [entry.word, entry.meaning, entry.category, entry.subcategory, entry.alternate].some((value) => String(value || "").toLocaleLowerCase().includes(query)));
+  const scope = $("#vocab-browser-scope")?.value || "current";
+  const status = $("#vocab-browser-status")?.value || "all";
+  const topicSelect = $("#vocab-browser-topic");
+  const selectedTopic = topicSelect?.value || "all";
+  const sourceEntries = scope === "all" ? vocabularyLibraryEntries() : vocabularyBookEntries();
+  const topics = [...new Set(sourceEntries.map((entry) => entry.topic || entry.category || "综合语境"))].sort((left, right) => left.localeCompare(right, "zh-CN"));
+  if (topicSelect) {
+    const currentTopic = topicSelect.value;
+    topicSelect.innerHTML = `<option value="all">全部主题</option>${topics.map((topic) => `<option value="${escapeHtml(topic)}">${escapeHtml(topic)}</option>`).join("")}`;
+    topicSelect.value = topics.includes(currentTopic) ? currentTopic : "all";
+  }
+  const effectiveTopic = topicSelect?.value || "all";
+  const now = Date.now();
+  const matchesStatus = (entry) => {
+    const record = vocabularyRecord(entry.word);
+    if (status === "due") return record.status !== "new" && (!record.nextReviewAt || new Date(record.nextReviewAt).getTime() <= now);
+    if (status === "reviewed") return (record.reviews || 0) > 0;
+    return status === "all" || record.status === status;
+  };
+  const entries = sourceEntries.filter((entry) => {
+    const searchFields = [entry.word, entry.meaning, entry.category, entry.subcategory, entry.alternate, entry.root, entry.family, entry.synonyms, entry.collocations, entry.writing, entry.translation, entry.listening, entry.topic];
+    return (!query || searchFields.some((value) => String(value || "").toLocaleLowerCase().includes(query)))
+      && (effectiveTopic === "all" || (entry.topic || entry.category || "综合语境") === effectiveTopic)
+      && matchesStatus(entry);
+  });
   const visible = entries.slice(0, (vocabularyBrowserPage + 1) * 50);
   count.textContent = `${entries.length} 个结果`;
   more.hidden = visible.length >= entries.length;
   container.innerHTML = visible.map((entry) => {
     const record = vocabularyRecord(entry.word);
-    return `<button type="button" class="vocab-browser-item" data-vocab-open-word="${escapeHtml(entry.word)}"><span><strong>${escapeHtml(entry.word)}</strong><small>${escapeHtml(entry.pos)} · ${escapeHtml(entry.category)}${entry.cet6 ? " · 六级重点" : ""}</small></span><span><b>${escapeHtml(entry.meaning)}</b><small>词频序位 #${entry.frequencyRank} · ${record.status === "new" ? "未学习" : record.status === "known" ? "已掌握" : "待巩固"}</small></span></button>`;
-  }).join("") || `<div class="saved-vocabulary-empty"><strong>没有匹配词条</strong><span>尝试缩短关键词或切换词表。</span></div>`;
+    const statusLabel = record.status === "new" ? "未学习" : record.status === "known" ? "已掌握" : record.status === "forgot" ? "易忘" : "待巩固";
+    return `<button type="button" class="vocab-browser-item" data-vocab-open-word="${escapeHtml(entry.word)}"><span><strong>${escapeHtml(entry.word)}</strong><small>${entry.isPhrase ? "搭配" : escapeHtml(entry.pos)} · ${escapeHtml(entry.topic || entry.category || "综合语境")}${entry.cet6 ? " · 六级重点" : ""}</small></span><span><b>${escapeHtml(entry.meaning)}</b><small>${entry.frequencyRank ? `词频序位 #${entry.frequencyRank} · ` : ""}${statusLabel}${entry.enriched ? " · 有扩展讲解" : ""}</small></span></button>`;
+  }).join("") || `<div class="saved-vocabulary-empty"><strong>没有匹配词条</strong><span>尝试搜索词根、搭配，或切换“搜索全部词库”。</span></div>`;
 }
 
 function renderMemoryProfile(entry = currentVocabularyEntry()) {
@@ -955,19 +1074,19 @@ function localTranslationForSelection(text) {
     };
   }
   const wordLookup = selectionWordLookup(normalized).toLocaleLowerCase();
-  const entry = VOCABULARY_BANK.find((item) => item.word.toLocaleLowerCase() === wordLookup);
+  const entry = vocabularyLibraryEntries().find((item) => item.word.toLocaleLowerCase() === wordLookup);
   if (entry) {
     return {
       text: normalized,
       translation: entry.meaning,
       ipa: entry.ipa || LOCAL_IPA[entry.word.toLocaleLowerCase()] || "",
       partOfSpeech: entry.pos,
-      explanation: `${entry.cet6 ? "六级重点词" : "四六级大纲词"}：结合语境掌握 ${entry.word} 的常用义${entry.collocation ? "和搭配" : "、词形与同义替换"}。`,
+        explanation: `${entry.cet6 ? "六级重点词" : "四六级大纲词"}：结合语境掌握 ${entry.word} 的常用义${entry.collocations ? "和搭配" : "、词形与同义替换"}。`,
       example: entry.example,
-      source: entry.enriched ? "本站原创词汇训练库" : "开放四六级词表 · CC BY-NC-SA 4.0",
+        source: entry.enriched ? (entry.sourceLabel || "本站原创词汇训练库") : "开放四六级词表 · CC BY-NC-SA 4.0",
     };
   }
-  const phraseEntry = VOCABULARY.find((item) => item.collocation.toLocaleLowerCase() === lower);
+  const phraseEntry = VOCABULARY_LIBRARY.find((item) => item.word.toLocaleLowerCase() === lower || item.collocation?.toLocaleLowerCase() === lower || item.collocations?.toLocaleLowerCase() === lower);
   if (phraseEntry) {
     return {
       text: normalized,
@@ -1471,11 +1590,13 @@ function updateVocabularyRecord(entry, result, source = "card") {
     level,
     status: result === "known" ? "known" : result,
     reviews: (record.reviews || 0) + 1,
+    gradedReviews: (record.gradedReviews || 0) + 1,
+    correctReviews: (record.correctReviews || 0) + (result === "known" ? 1 : 0),
     correctStreak: result === "known" ? (record.correctStreak || 0) + 1 : 0,
     firstReviewAt: record.firstReviewAt || (record.status === "new" ? reviewedAt.toISOString() : record.lastReviewedAt || reviewedAt.toISOString()),
     lastReviewedAt: reviewedAt.toISOString(),
     nextReviewAt: nextReview.toISOString(),
-    history: [...(record.history || []), { reviewedAt: reviewedAt.toISOString(), result, source, mode: vocabularyModeForEntry(entry), nextReviewAt: nextReview.toISOString() }].slice(-5),
+    history: [...(record.history || []), { reviewedAt: reviewedAt.toISOString(), result, source, mode: vocabularyModeForEntry(entry), nextReviewAt: nextReview.toISOString() }].slice(-30),
   };
   state.vocabulary[entry.word] = nextRecord;
   return nextRecord;
@@ -2766,6 +2887,12 @@ function initializeVocabulary() {
   $("#vocab-search").addEventListener("input", () => {
     vocabularyBrowserPage = 0;
     renderVocabularyBrowser();
+  });
+  ["#vocab-browser-scope", "#vocab-browser-status", "#vocab-browser-topic"].forEach((selector) => {
+    $(selector)?.addEventListener("change", () => {
+      vocabularyBrowserPage = 0;
+      renderVocabularyBrowser();
+    });
   });
   $("#vocab-load-more").addEventListener("click", () => {
     vocabularyBrowserPage += 1;

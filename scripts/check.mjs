@@ -4,6 +4,7 @@ import { APP_VERSION, buildPlan, CORE_SENTENCES, PRACTICE_CONTENT, VOCABULARY } 
 import { EAR_TRAINING_UNITS } from "../src/ear-training.js";
 import { MOCK_EXAMS } from "../src/mock-exams.js";
 import { CET_VOCABULARY_DATA } from "../src/vocabulary-bank.js";
+import { VOCABULARY_ENRICHMENT, VOCABULARY_PHRASES } from "../src/vocabulary-enrichment.js";
 
 const root = new URL("../", import.meta.url);
 const requiredFiles = [
@@ -20,6 +21,7 @@ const requiredFiles = [
   "src/lessons.js",
   "src/resources.js",
   "src/vocabulary-bank.js",
+  "src/vocabulary-enrichment.js",
   "src/storage.js",
   "src/accounts.js",
   "src/cloud.js",
@@ -44,6 +46,9 @@ if (plan[0].date !== "2026-09-13" || plan[89].date !== "2026-12-11") {
 if (VOCABULARY.length < 40) throw new Error("首批原创词汇少于40条");
 if (CET_VOCABULARY_DATA.length < 5278 || CET_VOCABULARY_DATA.filter((row) => row[3] === 1).length < 1253) {
   throw new Error("开放四六级词表数据不完整");
+}
+if (VOCABULARY_ENRICHMENT.length < 50 || VOCABULARY_PHRASES.length < 50) {
+  throw new Error("词汇扩展字段或高频搭配数量不足");
 }
 if (CORE_SENTENCES.length < 100) throw new Error("核心句素材少于100条");
 if (!CORE_SENTENCES.every((sentence) => sentence.sourceType === "original-modeled" && sentence.sourceLabel && sentence.sourceDetail)) {
@@ -86,10 +91,10 @@ if (packageData.version !== APP_VERSION) throw new Error(`package.json版本${pa
 for (const marker of [`styles.css?v=${APP_VERSION}`, `src/app.js?v=${APP_VERSION}`]) {
   if (!html.includes(marker)) throw new Error(`index.html缺少版本化资源：${marker}`);
 }
-for (const marker of [`cet6-90day-v${APP_VERSION}`, `src/app.js?v=${APP_VERSION}`, `src/content.js?v=${APP_VERSION}`, `src/practice-bank.js?v=${APP_VERSION}`, `src/mock-exams.js?v=${APP_VERSION}`, `src/vocabulary-bank.js?v=${APP_VERSION}`, `src/cloud.js?v=${APP_VERSION}`, `src/vendor/supabase.js?v=${APP_VERSION}`]) {
+for (const marker of [`cet6-90day-v${APP_VERSION}`, `src/app.js?v=${APP_VERSION}`, `src/content.js?v=${APP_VERSION}`, `src/practice-bank.js?v=${APP_VERSION}`, `src/mock-exams.js?v=${APP_VERSION}`, `src/vocabulary-bank.js?v=${APP_VERSION}`, `src/vocabulary-enrichment.js?v=${APP_VERSION}`, `src/cloud.js?v=${APP_VERSION}`, `src/vendor/supabase.js?v=${APP_VERSION}`]) {
   if (!serviceWorker.includes(marker)) throw new Error(`sw.js缺少版本标记：${marker}`);
 }
-for (const moduleFile of ["content", "resources", "mock-exams", "ear-training", "lessons", "vocabulary-bank", "db", "accounts", "storage", "cloud"]) {
+for (const moduleFile of ["content", "resources", "mock-exams", "ear-training", "lessons", "vocabulary-bank", "vocabulary-enrichment", "db", "accounts", "storage", "cloud"]) {
   if (!appSource.includes(`./${moduleFile}.js?v=${APP_VERSION}`)) throw new Error(`src/app.js未版本化加载${moduleFile}.js`);
 }
 if (/event\.currentTarget\.disabled\s*=/.test(appSource)) {
@@ -102,7 +107,7 @@ for (const marker of ["function initializeSelectionTranslator()", "function save
   if (!appSource.includes(marker)) throw new Error(`选区翻译功能缺少：${marker}`);
 }
 
-const productionFiles = ["package.json", "index.html", "src/app.js", "src/content.js", "src/practice-bank.js", "src/mock-exams.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/vocabulary-bank.js", "src/storage.js", "src/accounts.js", "src/cloud.js", "src/cloud-config.js", "src/db.js"];
+const productionFiles = ["package.json", "index.html", "src/app.js", "src/content.js", "src/practice-bank.js", "src/mock-exams.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/vocabulary-bank.js", "src/vocabulary-enrichment.js", "src/storage.js", "src/accounts.js", "src/cloud.js", "src/cloud-config.js", "src/db.js"];
 const forbiddenPatterns = ["z-ai-web-dev-sdk", "apiKey:", "CHATGLM_API_KEY", "sb_secret_"];
 for (const file of productionFiles) {
   const content = await readFile(new URL(file, root), "utf8");
@@ -111,7 +116,7 @@ for (const file of productionFiles) {
   }
 }
 
-for (const file of ["src/app.js", "src/content.js", "src/practice-bank.js", "src/mock-exams.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/vocabulary-bank.js", "src/storage.js", "src/accounts.js", "src/cloud.js", "src/cloud-config.js", "src/supabase-vendor-entry.js", "src/db.js", "sw.js", "scripts/build.mjs"]) {
+for (const file of ["src/app.js", "src/content.js", "src/practice-bank.js", "src/mock-exams.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/vocabulary-bank.js", "src/vocabulary-enrichment.js", "src/storage.js", "src/accounts.js", "src/cloud.js", "src/cloud-config.js", "src/supabase-vendor-entry.js", "src/db.js", "sw.js", "scripts/build.mjs"]) {
   const result = spawnSync(process.execPath, ["--check", new URL(file, root).pathname], { encoding: "utf8" });
   if (result.status !== 0) throw new Error(`${file} 语法检查失败：\n${result.stderr}`);
 }
@@ -169,4 +174,4 @@ for (const marker of ["enable row level security", "auth.uid()", "sync_study_sta
   if (!schema.includes(marker)) throw new Error(`Supabase数据库脚本缺少：${marker}`);
 }
 
-console.log(`检查通过：${plan.length}天计划，${VOCABULARY.length}个原创精讲词，${CET_VOCABULARY_DATA.length}个开放词表词条，${CORE_SENTENCES.length}条核心句，${EAR_TRAINING_UNITS.length}段磨耳朵，${practiceItems.length}个专项训练单元，${MOCK_EXAMS.length}套原创完整测试，${requiredFiles.length}个核心文件。`);
+console.log(`检查通过：${plan.length}天计划，${VOCABULARY.length}个原创精讲词，${VOCABULARY_ENRICHMENT.length}个扩展讲解，${VOCABULARY_PHRASES.length}个原创搭配，${CET_VOCABULARY_DATA.length}个开放词表词条，${CORE_SENTENCES.length}条核心句，${EAR_TRAINING_UNITS.length}段磨耳朵，${practiceItems.length}个专项训练单元，${MOCK_EXAMS.length}套原创完整测试，${requiredFiles.length}个核心文件。`);
