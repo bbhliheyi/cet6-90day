@@ -1,4 +1,6 @@
-export const APP_VERSION = "0.5.2";
+import { SUPPLEMENTAL_PRACTICE_CONTENT } from "./practice-bank.js?v=0.5.3";
+
+export const APP_VERSION = "0.5.3";
 
 export const EXAM_CONFIG = Object.freeze({
   region: "吉林 · 长春",
@@ -281,7 +283,7 @@ export const VOCABULARY = Object.freeze([
   { word: "yield", pos: "v./n.", meaning: "产生；带来；产量", example: "Focused practice often yields better results than random repetition.", collocation: "yield results" },
 ]);
 
-export const PRACTICE_CONTENT = Object.freeze({
+const BASE_PRACTICE_CONTENT = Object.freeze({
   listening: [
     {
       id: "listen-urban-library",
@@ -377,6 +379,41 @@ export const PRACTICE_CONTENT = Object.freeze({
   ],
 });
 
+const PRACTICE_SOURCE = Object.freeze({
+  sourceType: "original",
+  sourceLabel: "本站原创练习",
+  sourceDetail: "非官方真题，依据六级题型和能力要求独立编写；不复制商业题库。",
+});
+
+function normalizePracticeItem(item, module) {
+  const defaultType = {
+    listening: "听力选择题",
+    reading: "仔细阅读",
+    writing: "写作",
+    translation: "翻译",
+    speaking: "口语",
+  }[module] || "专项训练";
+  return Object.freeze({
+    ...PRACTICE_SOURCE,
+    ...item,
+    module,
+    type: item.type || defaultType,
+    kind: item.kind || (module === "reading" ? "careful" : "response"),
+  });
+}
+
+export const PRACTICE_CONTENT = Object.freeze(
+  Object.fromEntries(
+    Object.keys(BASE_PRACTICE_CONTENT).map((module) => [
+      module,
+      Object.freeze([
+        ...(BASE_PRACTICE_CONTENT[module] || []),
+        ...(SUPPLEMENTAL_PRACTICE_CONTENT[module] || []),
+      ].map((item) => normalizePracticeItem(item, module))),
+    ]),
+  ),
+);
+
 export const PREP_TASKS = Object.freeze([
   task("check-registration", "notice", "核对报名资格与报名状态", 10, "登录全国报名系统，确认学籍、照片、科目和缴费状态。"),
   task("set-goal", "plan", "设置目标与每日时长", 10, "确定目标分、是否参加口试以及60/90/130分钟模式。"),
@@ -393,6 +430,7 @@ export const SKILL_LABELS = Object.freeze({
   writing: "写作",
   translation: "翻译",
   speaking: "口语",
+  mock: "完整测试",
   review: "复盘",
   exam: "考试",
   notice: "通知",

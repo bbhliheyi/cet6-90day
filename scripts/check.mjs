@@ -1,7 +1,8 @@
 import { access, readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
-import { APP_VERSION, buildPlan, CORE_SENTENCES, VOCABULARY } from "../src/content.js";
+import { APP_VERSION, buildPlan, CORE_SENTENCES, PRACTICE_CONTENT, VOCABULARY } from "../src/content.js";
 import { EAR_TRAINING_UNITS } from "../src/ear-training.js";
+import { MOCK_EXAMS } from "../src/mock-exams.js";
 
 const root = new URL("../", import.meta.url);
 const requiredFiles = [
@@ -12,6 +13,8 @@ const requiredFiles = [
   "icon.svg",
   "src/app.js",
   "src/content.js",
+  "src/practice-bank.js",
+  "src/mock-exams.js",
   "src/ear-training.js",
   "src/lessons.js",
   "src/resources.js",
@@ -41,9 +44,23 @@ if (EAR_TRAINING_UNITS.length < 6) throw new Error("磨耳朵素材少于6段");
 if (!EAR_TRAINING_UNITS.every((unit) => unit.segments.length >= 5 && unit.focusChunks.length === 3)) {
   throw new Error("磨耳朵素材必须包含至少5个语段和3个关键语块");
 }
+const practiceItems = Object.values(PRACTICE_CONTENT).flat();
+if (practiceItems.length < 43) throw new Error(`专项题库数量不足：${practiceItems.length}`);
+if (!practiceItems.every((item) => item.sourceType === "original" && item.sourceLabel && item.sourceDetail)) {
+  throw new Error("专项题库必须完整标记原创来源");
+}
+if (!PRACTICE_CONTENT.reading.some((item) => item.kind === "cloze") || !PRACTICE_CONTENT.reading.some((item) => item.kind === "matching")) {
+  throw new Error("阅读题库缺少选词填空或长篇匹配题型");
+}
+const practiceIds = new Set(practiceItems.map((item) => item.id));
+for (const exam of MOCK_EXAMS) {
+  for (const section of exam.sections) {
+    for (const itemId of section.itemIds) if (!practiceIds.has(itemId)) throw new Error(`模拟卷引用了不存在的题目：${itemId}`);
+  }
+}
 
 const html = await readFile(new URL("index.html", root), "utf8");
-for (const id of ["view-dashboard", "view-plan", "view-vocabulary", "view-sentences", "view-eartraining", "view-practice", "view-lessons", "view-notices", "view-notes", "view-resources"]) {
+for (const id of ["view-dashboard", "view-plan", "view-vocabulary", "view-sentences", "view-eartraining", "view-practice", "view-tests", "view-lessons", "view-notices", "view-notes", "view-resources"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`缺少页面区域：${id}`);
 }
 for (const id of ["continue-learning", "backup-reminder", "plan-weekly", "ear-day-label", "account-summary", "account-dialog-content", "cloud-sync-indicator"]) {
@@ -57,10 +74,10 @@ if (packageData.version !== APP_VERSION) throw new Error(`package.json版本${pa
 for (const marker of [`styles.css?v=${APP_VERSION}`, `src/app.js?v=${APP_VERSION}`]) {
   if (!html.includes(marker)) throw new Error(`index.html缺少版本化资源：${marker}`);
 }
-for (const marker of [`cet6-90day-v${APP_VERSION}`, `src/app.js?v=${APP_VERSION}`, `src/content.js?v=${APP_VERSION}`, `src/cloud.js?v=${APP_VERSION}`, `src/vendor/supabase.js?v=${APP_VERSION}`]) {
+for (const marker of [`cet6-90day-v${APP_VERSION}`, `src/app.js?v=${APP_VERSION}`, `src/content.js?v=${APP_VERSION}`, `src/practice-bank.js?v=${APP_VERSION}`, `src/mock-exams.js?v=${APP_VERSION}`, `src/cloud.js?v=${APP_VERSION}`, `src/vendor/supabase.js?v=${APP_VERSION}`]) {
   if (!serviceWorker.includes(marker)) throw new Error(`sw.js缺少版本标记：${marker}`);
 }
-for (const moduleFile of ["content", "resources", "ear-training", "lessons", "db", "accounts", "storage", "cloud"]) {
+for (const moduleFile of ["content", "resources", "mock-exams", "ear-training", "lessons", "db", "accounts", "storage", "cloud"]) {
   if (!appSource.includes(`./${moduleFile}.js?v=${APP_VERSION}`)) throw new Error(`src/app.js未版本化加载${moduleFile}.js`);
 }
 if (/event\.currentTarget\.disabled\s*=/.test(appSource)) {
@@ -70,7 +87,7 @@ for (const marker of ["function openTask(item, day)", "data-dashboard-open-task"
   if (!appSource.includes(marker)) throw new Error(`每日任务缺少跳转能力：${marker}`);
 }
 
-const productionFiles = ["package.json", "index.html", "src/app.js", "src/content.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/storage.js", "src/accounts.js", "src/cloud.js", "src/cloud-config.js", "src/db.js"];
+const productionFiles = ["package.json", "index.html", "src/app.js", "src/content.js", "src/practice-bank.js", "src/mock-exams.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/storage.js", "src/accounts.js", "src/cloud.js", "src/cloud-config.js", "src/db.js"];
 const forbiddenPatterns = ["z-ai-web-dev-sdk", "apiKey:", "CHATGLM_API_KEY", "sb_secret_"];
 for (const file of productionFiles) {
   const content = await readFile(new URL(file, root), "utf8");
@@ -79,7 +96,7 @@ for (const file of productionFiles) {
   }
 }
 
-for (const file of ["src/app.js", "src/content.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/storage.js", "src/accounts.js", "src/cloud.js", "src/cloud-config.js", "src/supabase-vendor-entry.js", "src/db.js", "sw.js", "scripts/build.mjs"]) {
+for (const file of ["src/app.js", "src/content.js", "src/practice-bank.js", "src/mock-exams.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/storage.js", "src/accounts.js", "src/cloud.js", "src/cloud-config.js", "src/supabase-vendor-entry.js", "src/db.js", "sw.js", "scripts/build.mjs"]) {
   const result = spawnSync(process.execPath, ["--check", new URL(file, root).pathname], { encoding: "utf8" });
   if (result.status !== 0) throw new Error(`${file} 语法检查失败：\n${result.stderr}`);
 }
@@ -134,4 +151,4 @@ for (const marker of ["enable row level security", "auth.uid()", "sync_study_sta
   if (!schema.includes(marker)) throw new Error(`Supabase数据库脚本缺少：${marker}`);
 }
 
-console.log(`检查通过：${plan.length}天计划，${VOCABULARY.length}个原创词条，${EAR_TRAINING_UNITS.length}段磨耳朵素材，${requiredFiles.length}个核心文件。`);
+console.log(`检查通过：${plan.length}天计划，${VOCABULARY.length}个原创词条，${practiceItems.length}个专项训练单元，${MOCK_EXAMS.length}套原创完整测试，${requiredFiles.length}个核心文件。`);

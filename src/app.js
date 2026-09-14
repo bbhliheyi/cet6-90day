@@ -8,11 +8,12 @@ import {
   VOCABULARY,
   buildPlan,
   dailyCoreSentences,
-} from "./content.js?v=0.5.2";
-import { RESOURCE_CATALOG } from "./resources.js?v=0.5.2";
-import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.5.2";
-import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.5.2";
-import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.5.2";
+} from "./content.js?v=0.5.3";
+import { RESOURCE_CATALOG } from "./resources.js?v=0.5.3";
+import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.5.3";
+import { MOCK_EXAMS } from "./mock-exams.js?v=0.5.3";
+import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.5.3";
+import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.5.3";
 import {
   authenticateLocalAccount,
   clearCloudAccount,
@@ -24,7 +25,7 @@ import {
   setCloudAccount,
   setActiveAccount,
   useGuestAccount,
-} from "./accounts.js?v=0.5.2";
+} from "./accounts.js?v=0.5.3";
 import {
   deleteStateForAccount,
   exportState,
@@ -33,7 +34,7 @@ import {
   resetState,
   saveState,
   saveStateForAccount,
-} from "./storage.js?v=0.5.2";
+} from "./storage.js?v=0.5.3";
 import {
   forceDownloadCloudState,
   forceUploadCloudState,
@@ -46,7 +47,7 @@ import {
   signUpCloud,
   stageCloudMigration,
   subscribeCloudStatus,
-} from "./cloud.js?v=0.5.2";
+} from "./cloud.js?v=0.5.3";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -59,6 +60,7 @@ const ROUTE_TITLES = Object.freeze({
   sentences: "每日核心句",
   eartraining: "每日磨耳朵",
   practice: "专项训练",
+  tests: "完整测试",
   lessons: "系统讲解",
   notices: "官方通知",
   notes: "学习笔记",
@@ -231,7 +233,7 @@ function moduleRouteForTask(item) {
   if (["vocabulary", "sentences", "eartraining", "notes"].includes(item.module)) return item.module;
   if (["listening", "reading", "writing", "translation", "speaking"].includes(item.module)) return "practice";
   if (item.module === "review") return "notes";
-  if (["notice", "exam"].includes(item.module)) return item.id === "mock" ? "practice" : "notices";
+  if (["notice", "exam"].includes(item.module)) return item.id === "mock" ? "tests" : "notices";
   if (item.module === "data") return "data";
   return "plan";
 }
@@ -296,6 +298,8 @@ function renderBackupReminder() {
     || Object.keys(state.sentenceProgress || {}).length
     || Object.keys(state.earTraining || {}).length
     || (state.practiceAttempts || []).length
+    || state.mockSession
+    || (state.mockResults || []).length
     || state.notes?.html;
   const lastExportAt = state.lastExportAt ? new Date(state.lastExportAt).getTime() : 0;
   const reminderBaseline = lastExportAt || new Date(state.createdAt).getTime();
@@ -317,6 +321,7 @@ function renderBackupReminder() {
 
 function navigate(route, options = {}) {
   if (mediaRecorder?.state === "recording") stopRecording(recordingContext?.startId, recordingContext?.stopId);
+  stopWorkspaceTimer();
   if (!ROUTE_TITLES[route]) route = "dashboard";
   currentRoute = route;
   $$("[data-view]").forEach((view) => view.classList.toggle("is-active", view.dataset.view === route));
@@ -333,6 +338,7 @@ function navigate(route, options = {}) {
   if (route === "sentences") renderSentences();
   if (route === "eartraining") renderEarTraining();
   if (route === "practice") renderPracticeWorkspace();
+  if (route === "tests") renderMockExam();
   if (route === "lessons") renderLessons();
   if (route === "notes") loadNoteEditor();
   if (route === "resources") renderResourceCatalog();
@@ -953,12 +959,18 @@ function answerVocabularyTest(button, word) {
   });
 }
 
-function savePracticeAttempt(module, id, score) {
-  state.practiceAttempts.push({ module, id, score, completedAt: new Date().toISOString() });
-  const route = module === "eartraining" ? "eartraining" : module === "vocabulary" ? "vocabulary" : "practice";
+function savePracticeAttempt(module, id, score, metadata = {}) {
+  state.practiceAttempts ||= [];
+  state.practiceAttempts.push({ module, id, score, ...metadata, completedAt: new Date().toISOString() });
+  const route = module === "eartraining" ? "eartraining" : module === "vocabulary" ? "vocabulary" : module === "mock" ? "tests" : "practice";
   recordActivity(route, `${SKILL_LABELS[module] || module}训练`, id, { practiceModule: route === "practice" ? module : "" });
   state.lastStudyDate = todayInChina();
   persist();
+  if (module === "mock") {
+    markCurrentTask("exam", true);
+  } else if (score >= (module === "speaking" ? 60 : 60)) {
+    markCurrentTask(module, true);
+  }
   renderSkillBars();
 }
 
@@ -987,12 +999,14 @@ function createCountdown(display, seconds, onComplete) {
 }
 
 function practiceItem(module) {
-  const items = PRACTICE_CONTENT[module];
-  return items[activePracticeIndex % items.length];
+  const items = PRACTICE_CONTENT[module] || [];
+  if (!items.length) return null;
+  const dayIndex = Math.max(0, learningDay() - 1);
+  return items[(dayIndex + activePracticeIndex) % items.length];
 }
 
 function practiceHeader(item, label) {
-  return `<div class="workspace-heading"><div><p class="eyebrow">${label}</p><h3>${item.title}</h3></div><button class="outline-button" id="next-practice-item">换一题</button></div>`;
+  return `<div class="workspace-heading"><div><p class="eyebrow">${escapeHtml(label)}</p><h3>${escapeHtml(item.title)}</h3><div class="practice-meta"><span>来源：${escapeHtml(item.sourceLabel || "本站原创练习")}</span><span>题型：${escapeHtml(item.type || "专项训练")}</span><span>主题：${escapeHtml(item.theme || "综合能力")}</span><span>难度：${escapeHtml(item.difficulty || "未标注")}</span></div><div class="knowledge-tags">${(item.knowledgePoints || []).map((point) => `<span>${escapeHtml(point)}</span>`).join("")}</div><small class="source-disclaimer">${escapeHtml(item.sourceDetail || "本站内容仅用于学习训练，不等同官方真题。")}</small></div><button class="outline-button" id="next-practice-item">换一题</button></div>`;
 }
 
 function bindNextPractice() {
@@ -1004,6 +1018,7 @@ function bindNextPractice() {
 
 function renderListening() {
   const item = practiceItem("listening");
+  if (!item) return;
   $("#practice-workspace").innerHTML = `${practiceHeader(item, "LISTENING")}
     <div class="audio-training">
       <div class="audio-visual" aria-hidden="true">${Array.from({ length: 44 }, (_, index) => `<i style="height:${18 + ((index * 17) % 46)}%"></i>`).join("")}</div>
@@ -1036,12 +1051,21 @@ function renderListening() {
 
 function renderReading() {
   const item = practiceItem("reading");
-  $("#practice-workspace").innerHTML = `${practiceHeader(item, "READING")}
+  if (!item) return;
+  if (item.kind === "cloze") {
+    renderClozeReading(item);
+    return;
+  }
+  if (item.kind === "matching") {
+    renderMatchingReading(item);
+    return;
+  }
+  $("#practice-workspace").innerHTML = `${practiceHeader(item, "READING · 仔细阅读")}
     <div class="reading-layout">
-      <article class="reading-passage" id="reading-passage"><p>${item.passage}</p></article>
+      <article class="reading-passage" id="reading-passage"><p>${escapeHtml(item.passage)}</p></article>
       <div class="question-block">
-        <strong>${item.question}</strong>
-        <div class="practice-options">${item.options.map((option, index) => `<label><input type="radio" name="reading-answer" value="${index}" /><span>${String.fromCharCode(65 + index)}. ${option}</span></label>`).join("")}</div>
+        <strong>${escapeHtml(item.question)}</strong>
+        <div class="practice-options">${item.options.map((option, index) => `<label><input type="radio" name="reading-answer" value="${index}" /><span>${String.fromCharCode(65 + index)}. ${escapeHtml(option)}</span></label>`).join("")}</div>
         <button class="primary-button" id="submit-reading">提交并查看证据</button>
         <div id="reading-feedback"></div>
       </div>
@@ -1053,9 +1077,43 @@ function renderReading() {
       return;
     }
     const correct = Number(selected.value) === item.answer;
-    $("#reading-passage p").innerHTML = item.passage.replace(item.evidence, `<mark>${item.evidence}</mark>`);
-    $("#reading-feedback").innerHTML = `<div class="inline-feedback ${correct ? "success" : "error"}"><strong>${correct ? "回答正确" : `正确答案：${String.fromCharCode(65 + item.answer)}`}</strong><p>${item.explanation}</p><p><b>题型：</b>${item.questionType || "信息定位题"}</p><p><b>证据句：</b>${item.evidence}</p><details><summary>逐项查看选项分析</summary><ol>${(item.optionAnalysis || []).map((analysis) => `<li>${analysis}</li>`).join("")}</ol></details></div>`;
-    savePracticeAttempt("reading", item.id, correct ? 100 : 0);
+    $("#reading-passage p").innerHTML = escapeHtml(item.passage).replace(escapeHtml(item.evidence), `<mark>${escapeHtml(item.evidence)}</mark>`);
+    $("#reading-feedback").innerHTML = `<div class="inline-feedback ${correct ? "success" : "error"}"><strong>${correct ? "回答正确" : `正确答案：${String.fromCharCode(65 + item.answer)}`}</strong><p>${escapeHtml(item.explanation)}</p><p><b>题型：</b>${escapeHtml(item.questionType || "信息定位题")}</p><p><b>证据句：</b>${escapeHtml(item.evidence)}</p><details><summary>逐项查看选项分析</summary><ol>${(item.optionAnalysis || []).map((analysis) => `<li>${escapeHtml(analysis)}</li>`).join("")}</ol></details></div>`;
+    savePracticeAttempt("reading", item.id, correct ? 100 : 0, { questionType: item.kind });
+  });
+  bindNextPractice();
+}
+
+function readingSourceIntro(item) {
+  return `${practiceHeader(item, `READING · ${item.type}`)}`;
+}
+
+function renderClozeReading(item) {
+  $("#practice-workspace").innerHTML = `${readingSourceIntro(item)}<article class="cloze-passage"><p>${item.segments.map((segment, index) => `${escapeHtml(segment)}${index < item.answers.length ? `<select data-cloze-answer="${index}" aria-label="第${index + 1}空"><option value="">第${index + 1}空</option>${item.options.map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("")}</select>` : ""}`).join("")}</p></article><div class="reading-training-note"><strong>解题提示</strong><span>先判断空格词性，再用搭配和上下文排除干扰项。</span></div><button class="primary-button" id="submit-reading-cloze">提交选词填空</button><div id="reading-feedback"></div>`;
+  $("#submit-reading-cloze").addEventListener("click", () => {
+    const selected = $$('[data-cloze-answer]').map((select) => select.value);
+    if (selected.some((answer) => !answer)) {
+      alert("请先完成全部空格。" );
+      return;
+    }
+    const correctCount = selected.reduce((total, answer, index) => total + (answer === item.answers[index] ? 1 : 0), 0);
+    $("#reading-feedback").innerHTML = `<div class="inline-feedback ${correctCount === item.answers.length ? "success" : "error"}"><strong>答对 ${correctCount} / ${item.answers.length} 空</strong><p>参考答案：${item.answers.map((answer) => escapeHtml(answer)).join(" · ")}</p><ol>${item.answers.map((answer, index) => `<li>第${index + 1}空：<b>${escapeHtml(answer)}</b> · ${escapeHtml(item.explanations[index])}</li>`).join("")}</ol></div>`;
+    savePracticeAttempt("reading", item.id, Math.round((correctCount / item.answers.length) * 100), { questionType: item.kind, correctCount, totalCount: item.answers.length });
+  });
+  bindNextPractice();
+}
+
+function renderMatchingReading(item) {
+  $("#practice-workspace").innerHTML = `${readingSourceIntro(item)}<div class="matching-paragraphs">${item.paragraphs.map((paragraph) => `<article><strong>${escapeHtml(paragraph.id)}</strong><p>${escapeHtml(paragraph.text)}</p></article>`).join("")}</div><div class="matching-statements">${item.statements.map((statement, index) => `<label><span>${index + 1}. ${escapeHtml(statement.text)}</span><select data-matching-answer="${index}" aria-label="第${index + 1}题段落"><option value="">选择段落</option>${item.paragraphs.map((paragraph) => `<option value="${paragraph.id}">${paragraph.id}</option>`).join("")}</select></label>`).join("")}</div><button class="primary-button" id="submit-reading-matching">提交长篇匹配</button><div id="reading-feedback"></div>`;
+  $("#submit-reading-matching").addEventListener("click", () => {
+    const selected = $$('[data-matching-answer]').map((select) => select.value);
+    if (selected.some((answer) => !answer)) {
+      alert("请先完成全部匹配题。" );
+      return;
+    }
+    const correctCount = selected.reduce((total, answer, index) => total + (answer === item.statements[index].answer ? 1 : 0), 0);
+    $("#reading-feedback").innerHTML = `<div class="inline-feedback ${correctCount === item.statements.length ? "success" : "error"}"><strong>答对 ${correctCount} / ${item.statements.length} 题</strong><ol>${item.statements.map((statement, index) => `<li>第${index + 1}题：正确段落 <b>${escapeHtml(statement.answer)}</b> · ${escapeHtml(statement.explanation)}</li>`).join("")}</ol></div>`;
+    savePracticeAttempt("reading", item.id, Math.round((correctCount / item.statements.length) * 100), { questionType: item.kind, correctCount, totalCount: item.statements.length });
   });
   bindNextPractice();
 }
@@ -1161,6 +1219,219 @@ function renderSpeaking() {
   $("#stop-recording").addEventListener("click", () => stopRecording("start-recording", "stop-recording"));
   bindNextPractice();
   renderLatestRecording();
+}
+
+function mockExamItem(section, itemId) {
+  return (PRACTICE_CONTENT[section.module] || []).find((item) => item.id === itemId);
+}
+
+function mockExamById(id) {
+  return MOCK_EXAMS.find((exam) => exam.id === id) || MOCK_EXAMS[0];
+}
+
+function mockTimeLabel(seconds) {
+  const safeSeconds = Math.max(0, Math.ceil(seconds));
+  return `${Math.floor(safeSeconds / 60).toString().padStart(2, "0")}:${(safeSeconds % 60).toString().padStart(2, "0")}`;
+}
+
+function mockResponseScore(value, module) {
+  const text = String(value || "").trim();
+  const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
+  const sentences = (text.match(/[.!?。！？]/g) || []).length;
+  const target = module === "writing" ? 150 : 80;
+  const wordScore = Math.min(65, Math.round((words / target) * 65));
+  const structureScore = Math.min(25, sentences >= 3 ? 25 : sentences * 8);
+  const effortScore = text ? 10 : 0;
+  return { score: clamp(wordScore + structureScore + effortScore, 0, 100), words, sentences };
+}
+
+function mockItemResult(item, answer) {
+  if (item.kind === "cloze") {
+    const submitted = Array.isArray(answer) ? answer : [];
+    const correctCount = item.answers.reduce((total, expected, index) => total + (submitted[index] === expected ? 1 : 0), 0);
+    return { score: Math.round((correctCount / item.answers.length) * 100), correctCount, totalCount: item.answers.length, answered: submitted.some(Boolean) };
+  }
+  if (item.kind === "matching") {
+    const submitted = Array.isArray(answer) ? answer : [];
+    const correctCount = item.statements.reduce((total, statement, index) => total + (submitted[index] === statement.answer ? 1 : 0), 0);
+    return { score: Math.round((correctCount / item.statements.length) * 100), correctCount, totalCount: item.statements.length, answered: submitted.some(Boolean) };
+  }
+  if (item.module === "writing" || item.module === "translation") return { ...mockResponseScore(answer, item.module), answered: Boolean(String(answer || "").trim()) };
+  const correct = Number(answer) === Number(item.answer);
+  return { score: correct ? 100 : 0, correctCount: correct ? 1 : 0, totalCount: 1, answered: answer !== undefined && answer !== null && answer !== "" };
+}
+
+function mockSectionResult(exam, section, session) {
+  const items = section.itemIds.map((itemId) => mockExamItem(section, itemId)).filter(Boolean);
+  const itemResults = items.map((item) => ({ id: item.id, ...mockItemResult(item, session.answers?.[item.id]) }));
+  const points = itemResults.reduce((total, result) => total + result.score, 0);
+  const score = itemResults.length ? Math.round(points / itemResults.length) : 0;
+  return {
+    id: section.id,
+    title: section.title,
+    score,
+    itemCount: items.length,
+    completedCount: itemResults.filter((result) => result.answered).length,
+    itemResults,
+  };
+}
+
+function buildMockResult(exam, session, reason = "submitted") {
+  const sections = exam.sections.map((section) => mockSectionResult(exam, section, session));
+  const weights = { writing: 15, listening: 35, reading: 35, translation: 15 };
+  const totalWeight = exam.sections.reduce((total, section) => total + (weights[section.id] || 1), 0);
+  const totalScore = Math.round(exam.sections.reduce((total, section, index) => total + sections[index].score * (weights[section.id] || 1), 0) / totalWeight);
+  return {
+    id: `${exam.id}-${Date.now()}`,
+    examId: exam.id,
+    examTitle: exam.title,
+    sourceLabel: exam.sourceLabel,
+    reason,
+    totalScore,
+    sections,
+    completedAt: new Date().toISOString(),
+  };
+}
+
+function renderMockResult(result, exam) {
+  return `<div class="mock-result-card"><div class="mock-result-score"><span>${result.totalScore}</span><div><strong>本站训练参考分</strong><small>${result.reason === "timeout" ? "时间到，系统已自动交卷" : "已完成交卷"}</small></div></div><p class="source-disclaimer">${escapeHtml(exam.sourceDetail)} 写作与翻译分数按完成度和结构做本站估算，不是官方评分。</p><div class="mock-result-grid">${result.sections.map((section) => `<article><span>${escapeHtml(section.title)}</span><strong>${section.score}%</strong><small>${section.completedCount}/${section.itemCount} 个训练单元完成</small></article>`).join("")}</div><details class="mock-result-details"><summary>查看分项结果</summary><div>${result.sections.map((section) => `<p><b>${escapeHtml(section.title)}</b>：${section.itemResults.map((item) => `${item.score}%`).join(" · ")}</p>`).join("")}</div></details><div class="mock-result-actions"><button class="primary-button" id="restart-mock-exam">再次开始</button><button class="outline-button" data-route="practice">回到专项训练</button></div></div>`;
+}
+
+function startMockExam(exam) {
+  const now = Date.now();
+  state.mockSession = { examId: exam.id, sectionIndex: 0, answers: {}, startedAt: new Date(now).toISOString(), endsAt: new Date(now + exam.durationMinutes * 60 * 1000).toISOString(), updatedAt: new Date().toISOString() };
+  recordActivity("tests", exam.title, "开始完整测试");
+  persist();
+  renderMockExam();
+}
+
+function renderMockHistory(exam) {
+  const results = (state.mockResults || []).filter((result) => result.examId === exam.id).slice(0, 5);
+  if (!results.length) return `<p class="muted">还没有完整测试记录。开始一次后，这里会保存交卷时间、分项成绩和错题数量。</p>`;
+  return `<div class="mock-history"><strong>最近测试记录</strong>${results.map((result) => `<div><span>${new Date(result.completedAt).toLocaleString("zh-CN")}</span><b>${result.totalScore}分</b><small>${result.reason === "timeout" ? "超时交卷" : "主动交卷"}</small></div>`).join("")}</div>`;
+}
+
+function renderMockStart(exam, container) {
+  const questionCount = exam.sections.reduce((total, section) => total + section.itemIds.length, 0);
+  container.innerHTML = `<div class="mock-overview"><div class="card-heading"><div><p class="eyebrow">FULL MOCK TEST · ORIGINAL</p><h3>${escapeHtml(exam.title)}</h3></div><span class="source-chip">${escapeHtml(exam.sourceLabel)}</span></div><p>${escapeHtml(exam.description)}</p><div class="mock-warning"><strong>先说明题源</strong><span>这是本站原创训练卷，按考试能力组织流程；不等同官方真题。官方真题只可使用你本人合法取得、并在本地保存的材料。</span></div><div class="mock-section-grid">${exam.sections.map((section) => `<article><span>${escapeHtml(section.title)}</span><strong>${section.itemIds.length}个训练单元</strong><small>${section.minutes}分钟 · ${escapeHtml(section.instruction)}</small></article>`).join("")}</div><div class="mock-start-row"><div><strong>总计 ${questionCount} 个训练单元 · ${exam.durationMinutes} 分钟</strong><small>题序固定，不随机；中途退出后可从当前部分继续。</small></div><button class="primary-button" id="start-mock-exam">开始完整测试</button></div></div><div class="mock-history-panel"><div class="card-heading"><h3>测试留存</h3><span class="muted">当前账户</span></div>${renderMockHistory(exam)}</div>`;
+  $("#start-mock-exam").addEventListener("click", () => startMockExam(exam));
+}
+
+function mockRadioMarkup(item, session) {
+  const answer = session.answers?.[item.id];
+  return `<div class="mock-options">${item.options.map((option, index) => `<label><input type="radio" name="mock-${item.id}" data-mock-radio="${item.id}" value="${index}" ${Number(answer) === index ? "checked" : ""} /><span>${String.fromCharCode(65 + index)}. ${escapeHtml(option)}</span></label>`).join("")}</div>`;
+}
+
+function mockItemMarkup(item, section, session, index) {
+  const number = index + 1;
+  if (item.module === "writing" || item.module === "translation") {
+    const value = session.answers?.[item.id] || "";
+    const prompt = item.module === "writing" ? item.prompt : item.source;
+    return `<article class="mock-question response-question"><div class="mock-question-heading"><span>第${number}题</span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.type)}</small></div><div class="writing-prompt"><strong>${item.module === "writing" ? "作文题目" : "翻译材料"}</strong><p>${escapeHtml(prompt)}</p></div><textarea class="answer-editor" data-mock-response="${item.id}" placeholder="${item.module === "writing" ? "Write your essay here..." : "Write your translation here..."}">${escapeHtml(value)}</textarea><small class="mock-response-tip">${item.module === "writing" ? "建议不少于150词，完成后检查结构、衔接、语法和拼写。" : "完成后检查关键信息、时态、主谓、搭配和文化表达。"}</small></article>`;
+  }
+  if (item.kind === "cloze") {
+    const answers = Array.isArray(session.answers?.[item.id]) ? session.answers[item.id] : [];
+    const text = item.segments.map((segment, segmentIndex) => `${escapeHtml(segment)}${segmentIndex < item.answers.length ? `<select data-mock-cloze="${item.id}:${segmentIndex}" aria-label="${escapeHtml(item.title)}第${segmentIndex + 1}空"><option value="">第${segmentIndex + 1}空</option>${item.options.map((option) => `<option value="${escapeHtml(option)}" ${answers[segmentIndex] === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}</select>` : ""}`).join("");
+    return `<article class="mock-question"><div class="mock-question-heading"><span>第${number}题 · 选词填空</span><strong>${escapeHtml(item.title)}</strong></div><p class="cloze-text">${text}</p></article>`;
+  }
+  if (item.kind === "matching") {
+    const answers = Array.isArray(session.answers?.[item.id]) ? session.answers[item.id] : [];
+    return `<article class="mock-question"><div class="mock-question-heading"><span>第${number}题 · 长篇匹配</span><strong>${escapeHtml(item.title)}</strong></div><div class="matching-paragraphs">${item.paragraphs.map((paragraph) => `<article><strong>${escapeHtml(paragraph.id)}</strong><p>${escapeHtml(paragraph.text)}</p></article>`).join("")}</div><div class="matching-statements">${item.statements.map((statement, statementIndex) => `<label><span>${statementIndex + 1}. ${escapeHtml(statement.text)}</span><select data-mock-matching="${item.id}:${statementIndex}" aria-label="${escapeHtml(item.title)}第${statementIndex + 1}题"><option value="">选择段落</option>${item.paragraphs.map((paragraph) => `<option value="${paragraph.id}" ${answers[statementIndex] === paragraph.id ? "selected" : ""}>${paragraph.id}</option>`).join("")}</select></label>`).join("")}</div></article>`;
+  }
+  const speechButton = item.module === "listening" ? `<button class="ghost-button" data-mock-speak="${escapeHtml(item.script)}">▶ 播放材料</button><details><summary>交卷后查看原文</summary><p>${escapeHtml(item.script)}</p></details>` : `<article class="reading-passage"><p>${escapeHtml(item.passage)}</p></article>`;
+  return `<article class="mock-question"><div class="mock-question-heading"><span>第${number}题 · ${escapeHtml(item.type)}</span><strong>${escapeHtml(item.question)}</strong></div>${speechButton}${mockRadioMarkup(item, session)}</article>`;
+}
+
+function startMockTimer(exam, session) {
+  stopWorkspaceTimer();
+  const display = $("#mock-timer");
+  if (!display) return;
+  const update = () => {
+    const remaining = Math.max(0, (new Date(session.endsAt).getTime() - Date.now()) / 1000);
+    display.textContent = mockTimeLabel(remaining);
+    display.classList.toggle("is-warning", remaining <= 300);
+    if (remaining <= 0) finishMockExam("timeout");
+  };
+  update();
+  workspaceTimer = setInterval(update, 1000);
+}
+
+function updateMockAnswer(key, value) {
+  if (!state.mockSession) return;
+  state.mockSession.answers ||= {};
+  state.mockSession.answers[key] = value;
+  state.mockSession.updatedAt = new Date().toISOString();
+  persist();
+}
+
+function bindMockInputs(exam, section, session) {
+  $$('[data-mock-radio]').forEach((input) => input.addEventListener("change", () => updateMockAnswer(input.dataset.mockRadio, Number(input.value))));
+  $$('[data-mock-cloze]').forEach((select) => select.addEventListener("change", () => {
+    const [itemId, index] = select.dataset.mockCloze.split(":");
+    const answers = Array.isArray(state.mockSession?.answers?.[itemId]) ? [...state.mockSession.answers[itemId]] : [];
+    answers[Number(index)] = select.value;
+    updateMockAnswer(itemId, answers);
+  }));
+  $$('[data-mock-matching]').forEach((select) => select.addEventListener("change", () => {
+    const [itemId, index] = select.dataset.mockMatching.split(":");
+    const answers = Array.isArray(state.mockSession?.answers?.[itemId]) ? [...state.mockSession.answers[itemId]] : [];
+    answers[Number(index)] = select.value;
+    updateMockAnswer(itemId, answers);
+  }));
+  $$('[data-mock-response]').forEach((editor) => editor.addEventListener("input", () => updateMockAnswer(editor.dataset.mockResponse, editor.value)));
+  $$('[data-mock-speak]').forEach((button) => button.addEventListener("click", () => pronounce(button.dataset.mockSpeak, 0.9)));
+  $("#mock-prev-section")?.addEventListener("click", () => {
+    state.mockSession.sectionIndex = Math.max(0, state.mockSession.sectionIndex - 1);
+    persist();
+    renderMockExam();
+  });
+  $("#mock-next-section")?.addEventListener("click", () => {
+    state.mockSession.sectionIndex = Math.min(exam.sections.length - 1, state.mockSession.sectionIndex + 1);
+    persist();
+    renderMockExam();
+  });
+  $("#submit-mock-exam")?.addEventListener("click", () => {
+    if (confirm("确定现在交卷吗？未填写的题目会按未作答计入复盘。")) finishMockExam("submitted");
+  });
+  $("#save-mock-exit")?.addEventListener("click", () => {
+    recordActivity("tests", exam.title, "完整测试已保存，可继续作答");
+    persist();
+    navigate("dashboard");
+  });
+}
+
+function finishMockExam(reason = "submitted") {
+  const session = state.mockSession;
+  if (!session) return;
+  const exam = mockExamById(session.examId);
+  stopWorkspaceTimer();
+  const result = buildMockResult(exam, session, reason);
+  state.mockResults ||= [];
+  state.mockResults.unshift(result);
+  state.mockResults = state.mockResults.slice(0, 20);
+  state.mockSession = null;
+  savePracticeAttempt("mock", exam.id, result.totalScore, { resultId: result.id, reason, sections: result.sections.map((section) => ({ id: section.id, score: section.score })) });
+  renderMockExam();
+}
+
+function renderMockExam() {
+  const container = $("#mock-exam-workspace");
+  if (!container) return;
+  const exam = mockExamById(state.mockSession?.examId || MOCK_EXAMS[0].id);
+  if (!state.mockSession) {
+    const latest = (state.mockResults || []).find((result) => result.examId === exam.id);
+    renderMockStart(exam, container);
+    if (latest) container.insertAdjacentHTML("afterbegin", renderMockResult(latest, exam));
+    $$('[data-route="practice"]', container).forEach((button) => button.addEventListener("click", () => navigate("practice")));
+    $("#restart-mock-exam")?.addEventListener("click", () => startMockExam(exam));
+    return;
+  }
+  const session = state.mockSession;
+  const section = exam.sections[Math.min(exam.sections.length - 1, session.sectionIndex)] || exam.sections[0];
+  const sectionIndex = exam.sections.indexOf(section);
+  container.innerHTML = `<div class="mock-test-top"><div><p class="eyebrow">FULL MOCK TEST · ${sectionIndex + 1}/${exam.sections.length}</p><h3>${escapeHtml(exam.title)}</h3><small>${escapeHtml(exam.sourceLabel)} · 题序固定 · 自动保存</small></div><div class="mock-timer-box"><small>剩余时间</small><strong id="mock-timer">--:--</strong></div></div><div class="mock-section-tabs">${exam.sections.map((item, index) => `<span class="${index === sectionIndex ? "is-active" : ""} ${index < sectionIndex ? "is-done" : ""}">${index + 1}. ${escapeHtml(item.title)}<small>${item.minutes}分钟</small></span>`).join("")}</div><div class="mock-section-heading"><div><p class="eyebrow">SECTION ${sectionIndex + 1}</p><h3>${escapeHtml(section.title)}</h3><p>${escapeHtml(section.instruction)}</p></div><span>${section.itemIds.length}个训练单元</span></div><div class="mock-question-list">${section.itemIds.map((itemId, index) => { const item = mockExamItem(section, itemId); return item ? mockItemMarkup(item, section, session, index) : `<p class="muted">题目 ${escapeHtml(itemId)} 暂不可用。</p>`; }).join("")}</div><div class="mock-navigation"><button class="outline-button" id="save-mock-exit">保存并退出</button><div><button class="outline-button" id="mock-prev-section" ${sectionIndex === 0 ? "disabled" : ""}>上一部分</button>${sectionIndex === exam.sections.length - 1 ? `<button class="primary-button" id="submit-mock-exam">交卷并查看结果</button>` : `<button class="primary-button" id="mock-next-section">下一部分 →</button>`}</div></div><p class="source-disclaimer">${escapeHtml(exam.sourceDetail)} 页面离开后答案仍保留在当前账户；录音和外部材料不会上传到云端。</p>`;
+  bindMockInputs(exam, section, session);
+  startMockTimer(exam, session);
 }
 
 async function startRecording(item, options = {}) {

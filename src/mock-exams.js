@@ -1,0 +1,71 @@
+export const MOCK_EXAMS = Object.freeze([
+  Object.freeze({
+    id: "mock-original-01",
+    title: "原创完整模拟卷 01 · 综合能力训练",
+    sourceType: "original",
+    sourceLabel: "本站原创模拟卷",
+    sourceDetail: "依据CET-6题型能力要求独立编写，不是官方真题，也不复制商业题库。",
+    description: "按写作、听力、阅读、翻译顺序完成；题序固定，答案和草稿会自动保存在当前账户。",
+    durationMinutes: 130,
+    sections: Object.freeze([
+      Object.freeze({
+        id: "writing",
+        module: "writing",
+        title: "写作",
+        minutes: 30,
+        instruction: "审题、列提纲并完成一篇完整作文。提交后可查看本站自查建议。",
+        itemIds: Object.freeze(["write-ai-study-boundaries"]),
+      }),
+      Object.freeze({
+        id: "listening",
+        module: "listening",
+        title: "听力",
+        minutes: 35,
+        instruction: "先独立听材料并作答；可按需要回听，但不要查看文本。",
+        itemIds: Object.freeze([
+          "listen-urban-library",
+          "listen-campus-garden",
+          "listen-lab-schedule",
+          "listen-bike-service",
+          "listen-sleep-routine",
+          "listen-citizen-science",
+          "listen-refill-report",
+          "listen-job-shadowing",
+          "listen-spaced-practice",
+          "listen-urban-trees",
+        ]),
+      }),
+      Object.freeze({
+        id: "reading",
+        module: "reading",
+        title: "阅读",
+        minutes: 35,
+        instruction: "先读题干再定位证据；选词填空和长篇匹配要记录词性、同义替换和逻辑关系。",
+        itemIds: Object.freeze([
+          "read-micro-breaks",
+          "read-local-museums",
+          "read-digital-notes",
+          "read-community-markets",
+          "read-quiet-technology",
+          "read-public-benches",
+          "read-cloze-campus-energy",
+          "read-cloze-peer-feedback",
+          "read-matching-learning-spaces",
+          "read-matching-community-projects",
+        ]),
+      }),
+      Object.freeze({
+        id: "translation",
+        module: "translation",
+        title: "翻译",
+        minutes: 30,
+        instruction: "先拆分中文长句，再完成译文并检查时态、主谓、搭配和文化表达。",
+        itemIds: Object.freeze(["trans-high-speed-rail"]),
+      }),
+    ]),
+  }),
+]);
+
+export const MOCK_EXAM_BY_ID = Object.freeze(
+  Object.fromEntries(MOCK_EXAMS.map((exam) => [exam.id, exam])),
+);
