@@ -111,6 +111,25 @@
 4. Tauri与静态Next.js前端说明，仅供未来桌面封装阶段评估  
    `https://v2.tauri.app/start/frontend/nextjs/`
 
+## E级：云账户与同步官方来源
+
+以下来源于2026-09-14核对，仅用于账户、安全和部署实现。
+
+1. Supabase API密钥与Publishable key
+   `https://supabase.com/docs/guides/getting-started/api-keys`
+
+2. Supabase邮箱与密码认证
+   `https://supabase.com/docs/guides/auth/passwords`
+
+3. Supabase重定向地址配置
+   `https://supabase.com/docs/guides/auth/redirect-urls`
+
+4. Supabase Row Level Security
+   `https://supabase.com/docs/guides/database/postgres/row-level-security`
+
+5. Supabase默认SMTP与自定义SMTP限制
+   `https://supabase.com/docs/guides/auth/auth-smtp`
+
 ## 来源更新规则
 
 - 官方考试与吉林通知：开发期间每次上线前核对；考试季每周核对。

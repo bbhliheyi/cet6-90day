@@ -17,7 +17,11 @@ const requiredFiles = [
   "src/resources.js",
   "src/storage.js",
   "src/accounts.js",
+  "src/cloud.js",
+  "src/cloud-config.js",
+  "src/supabase-vendor-entry.js",
   "src/db.js",
+  "supabase/schema.sql",
 ];
 
 for (const file of requiredFiles) await access(new URL(file, root));
@@ -42,7 +46,7 @@ const html = await readFile(new URL("index.html", root), "utf8");
 for (const id of ["view-dashboard", "view-plan", "view-vocabulary", "view-sentences", "view-eartraining", "view-practice", "view-lessons", "view-notices", "view-notes", "view-resources"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`缺少页面区域：${id}`);
 }
-for (const id of ["continue-learning", "backup-reminder", "plan-weekly", "ear-day-label", "account-summary", "account-dialog-content"]) {
+for (const id of ["continue-learning", "backup-reminder", "plan-weekly", "ear-day-label", "account-summary", "account-dialog-content", "cloud-sync-indicator"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`缺少状态组件：${id}`);
 }
 
@@ -53,15 +57,15 @@ if (packageData.version !== APP_VERSION) throw new Error(`package.json版本${pa
 for (const marker of [`styles.css?v=${APP_VERSION}`, `src/app.js?v=${APP_VERSION}`]) {
   if (!html.includes(marker)) throw new Error(`index.html缺少版本化资源：${marker}`);
 }
-for (const marker of [`cet6-90day-v${APP_VERSION}`, `src/app.js?v=${APP_VERSION}`, `src/content.js?v=${APP_VERSION}`]) {
+for (const marker of [`cet6-90day-v${APP_VERSION}`, `src/app.js?v=${APP_VERSION}`, `src/content.js?v=${APP_VERSION}`, `src/cloud.js?v=${APP_VERSION}`, `src/vendor/supabase.js?v=${APP_VERSION}`]) {
   if (!serviceWorker.includes(marker)) throw new Error(`sw.js缺少版本标记：${marker}`);
 }
-for (const moduleFile of ["content", "resources", "ear-training", "lessons", "db", "accounts", "storage"]) {
+for (const moduleFile of ["content", "resources", "ear-training", "lessons", "db", "accounts", "storage", "cloud"]) {
   if (!appSource.includes(`./${moduleFile}.js?v=${APP_VERSION}`)) throw new Error(`src/app.js未版本化加载${moduleFile}.js`);
 }
 
-const productionFiles = ["package.json", "index.html", "src/app.js", "src/content.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/storage.js", "src/accounts.js", "src/db.js"];
-const forbiddenPatterns = ["z-ai-web-dev-sdk", "apiKey:", "CHATGLM_API_KEY"];
+const productionFiles = ["package.json", "index.html", "src/app.js", "src/content.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/storage.js", "src/accounts.js", "src/cloud.js", "src/cloud-config.js", "src/db.js"];
+const forbiddenPatterns = ["z-ai-web-dev-sdk", "apiKey:", "CHATGLM_API_KEY", "sb_secret_"];
 for (const file of productionFiles) {
   const content = await readFile(new URL(file, root), "utf8");
   for (const pattern of forbiddenPatterns) {
@@ -69,7 +73,7 @@ for (const file of productionFiles) {
   }
 }
 
-for (const file of ["src/app.js", "src/content.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/storage.js", "src/accounts.js", "src/db.js", "sw.js", "scripts/build.mjs"]) {
+for (const file of ["src/app.js", "src/content.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/storage.js", "src/accounts.js", "src/cloud.js", "src/cloud-config.js", "src/supabase-vendor-entry.js", "src/db.js", "sw.js", "scripts/build.mjs"]) {
   const result = spawnSync(process.execPath, ["--check", new URL(file, root).pathname], { encoding: "utf8" });
   if (result.status !== 0) throw new Error(`${file} 语法检查失败：\n${result.stderr}`);
 }
@@ -107,5 +111,21 @@ try {
   rejectedWrongPassword = true;
 }
 if (!rejectedWrongPassword) throw new Error("本机账户接受了错误口令");
+const mockCloudUser = { id: "00000000-0000-0000-0000-000000000001", email: "quality@example.com", user_metadata: { display_name: "云检查" } };
+const cloudAccount = accountModule.setCloudAccount(mockCloudUser);
+if (accountModule.getCurrentAccount().id !== cloudAccount.id || accountModule.getCurrentAccount().type !== "cloud") {
+  throw new Error("云账户身份未正确保存");
+}
+accountModule.clearCloudAccount();
+if (accountModule.getCurrentAccount().type !== "guest") throw new Error("云账户退出后未恢复访客状态");
+
+const cloudConfig = await readFile(new URL("src/cloud-config.js", root), "utf8");
+if (!cloudConfig.includes("pggshlbhlfjrfgofqojd.supabase.co") || !cloudConfig.includes("sb_publishable_")) {
+  throw new Error("Supabase公开配置缺失");
+}
+const schema = await readFile(new URL("supabase/schema.sql", root), "utf8");
+for (const marker of ["enable row level security", "auth.uid()", "sync_study_state", "p_expected_revision"]) {
+  if (!schema.includes(marker)) throw new Error(`Supabase数据库脚本缺少：${marker}`);
+}
 
 console.log(`检查通过：${plan.length}天计划，${VOCABULARY.length}个原创词条，${EAR_TRAINING_UNITS.length}段磨耳朵素材，${requiredFiles.length}个核心文件。`);

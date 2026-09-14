@@ -1,5 +1,6 @@
 const ACCOUNT_INDEX_KEY = "cet6-90day-accounts-v1";
 const ACTIVE_ACCOUNT_KEY = "cet6-90day-active-account-v1";
+const CLOUD_ACCOUNT_KEY = "cet6-90day-cloud-account-v1";
 const GUEST_ID = "guest";
 const PIN_ITERATIONS = 120_000;
 
@@ -27,6 +28,16 @@ function readIndex() {
 
 function writeIndex(index) {
   localStorage.setItem(ACCOUNT_INDEX_KEY, JSON.stringify(index));
+}
+
+function readCloudAccount() {
+  try {
+    const account = JSON.parse(localStorage.getItem(CLOUD_ACCOUNT_KEY));
+    if (account?.type !== "cloud" || !account?.id || !account?.userId || !account?.email) return null;
+    return account;
+  } catch {
+    return null;
+  }
 }
 
 function publicAccount(account) {
@@ -97,6 +108,8 @@ export function listLocalAccounts() {
 export function getActiveAccountId() {
   const activeId = localStorage.getItem(ACTIVE_ACCOUNT_KEY);
   if (!activeId || activeId === GUEST_ID) return GUEST_ID;
+  const cloudAccount = readCloudAccount();
+  if (cloudAccount?.id === activeId) return activeId;
   if (readIndex().accounts.some((account) => account.id === activeId)) return activeId;
   localStorage.setItem(ACTIVE_ACCOUNT_KEY, GUEST_ID);
   return GUEST_ID;
@@ -105,7 +118,34 @@ export function getActiveAccountId() {
 export function getCurrentAccount() {
   const accountId = getActiveAccountId();
   if (accountId === GUEST_ID) return GUEST_ACCOUNT;
+  const cloudAccount = readCloudAccount();
+  if (cloudAccount?.id === accountId) return cloudAccount;
   return publicAccount(readIndex().accounts.find((account) => account.id === accountId)) || GUEST_ACCOUNT;
+}
+
+export function setCloudAccount(user) {
+  if (!user?.id || !user?.email) throw new Error("云账户信息不完整。");
+  const displayName = String(user.user_metadata?.display_name || user.email.split("@")[0] || "云账户").slice(0, 20);
+  const account = {
+    id: `cloud:${user.id}`,
+    userId: user.id,
+    username: user.email,
+    email: user.email,
+    displayName,
+    type: "cloud",
+    updatedAt: new Date().toISOString(),
+  };
+  localStorage.setItem(CLOUD_ACCOUNT_KEY, JSON.stringify(account));
+  localStorage.setItem(ACTIVE_ACCOUNT_KEY, account.id);
+  return account;
+}
+
+export function clearCloudAccount() {
+  const cloudAccount = readCloudAccount();
+  localStorage.removeItem(CLOUD_ACCOUNT_KEY);
+  if (cloudAccount && localStorage.getItem(ACTIVE_ACCOUNT_KEY) === cloudAccount.id) {
+    localStorage.setItem(ACTIVE_ACCOUNT_KEY, GUEST_ID);
+  }
 }
 
 export function setActiveAccount(accountId) {

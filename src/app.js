@@ -8,21 +8,23 @@ import {
   VOCABULARY,
   buildPlan,
   dailyCoreSentences,
-} from "./content.js?v=0.4.0";
-import { RESOURCE_CATALOG } from "./resources.js?v=0.4.0";
-import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.4.0";
-import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.4.0";
-import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.4.0";
+} from "./content.js?v=0.5.0";
+import { RESOURCE_CATALOG } from "./resources.js?v=0.5.0";
+import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.5.0";
+import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.5.0";
+import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.5.0";
 import {
   authenticateLocalAccount,
+  clearCloudAccount,
   createLocalAccount,
   deleteLocalAccount,
   getActiveAccountId,
   getCurrentAccount,
   listLocalAccounts,
+  setCloudAccount,
   setActiveAccount,
   useGuestAccount,
-} from "./accounts.js?v=0.4.0";
+} from "./accounts.js?v=0.5.0";
 import {
   deleteStateForAccount,
   exportState,
@@ -31,7 +33,20 @@ import {
   resetState,
   saveState,
   saveStateForAccount,
-} from "./storage.js?v=0.4.0";
+} from "./storage.js?v=0.5.0";
+import {
+  forceDownloadCloudState,
+  forceUploadCloudState,
+  getCloudStatus,
+  initializeCloudAuth,
+  queueCloudSync,
+  reconcileCloudState,
+  signInCloud,
+  signOutCloud,
+  signUpCloud,
+  stageCloudMigration,
+  subscribeCloudStatus,
+} from "./cloud.js?v=0.5.0";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -66,9 +81,11 @@ let mediaRecorder = null;
 let recordingStream = null;
 let recordingContext = null;
 let noteSaveTimer = null;
+let cloudInitializationError = null;
 
 function persist() {
   saveState(state);
+  queueCloudSync(state);
 }
 
 function recordActivity(route, label, detail = "", metadata = {}) {
@@ -1315,23 +1332,37 @@ function accountInitials(displayName) {
   return Array.from(displayName || "访客").slice(0, 2).join("");
 }
 
+function renderCloudIndicator(status = getCloudStatus()) {
+  const indicator = $("#cloud-sync-indicator");
+  if (!indicator) return;
+  const isCloudAccount = getCurrentAccount().type === "cloud";
+  indicator.hidden = !isCloudAccount;
+  indicator.dataset.status = status.state;
+  indicator.querySelector("span").textContent = status.label;
+  indicator.title = status.detail;
+}
+
 function renderAccountChrome() {
   const account = getCurrentAccount();
-  const accountType = account.type === "local" ? "本机账户" : "访客模式";
+  const accountType = account.type === "cloud" ? "云账户" : account.type === "local" ? "本机账户" : "访客模式";
   const button = $("#data-button");
   button.textContent = accountInitials(account.displayName);
   button.title = `${account.displayName} · 账户与数据`;
   button.setAttribute("aria-label", `打开${account.displayName}的账户与数据管理`);
   const summary = $("#account-summary");
   if (summary) {
-    summary.innerHTML = `<span class="account-summary-avatar">${escapeHtml(accountInitials(account.displayName))}</span><div><strong>${escapeHtml(account.displayName)}</strong><small>${accountType}${account.type === "local" ? ` · @${escapeHtml(account.username)}` : " · 无需登录"}</small></div><span class="account-mode-badge">${account.type === "local" ? "已登录" : "访客"}</span>`;
+    const identity = account.type === "guest" ? "无需登录" : account.type === "cloud" ? escapeHtml(account.email) : `@${escapeHtml(account.username)}`;
+    summary.innerHTML = `<span class="account-summary-avatar">${escapeHtml(accountInitials(account.displayName))}</span><div><strong>${escapeHtml(account.displayName)}</strong><small>${accountType} · ${identity}</small></div><span class="account-mode-badge ${account.type}">${account.type === "cloud" ? "云端" : account.type === "local" ? "本机" : "访客"}</span>`;
   }
   const note = $("#data-storage-note");
   if (note) {
-    note.textContent = account.type === "local"
-      ? "该账户的进度、笔记和录音与其他本机账户隔离，当前仅保存在此浏览器。"
-      : "访客进度单独保存在当前浏览器；创建本机账户后可复制现有进度。";
+    note.textContent = account.type === "cloud"
+      ? "学习进度先保存到本机，再自动同步至云端；录音仍只保存在当前设备。"
+      : account.type === "local"
+        ? "该账户的进度、笔记和录音与其他本机账户隔离，当前仅保存在此浏览器。"
+        : "访客进度单独保存在当前浏览器；登录云账户时可以迁移现有进度。";
   }
+  renderCloudIndicator();
 }
 
 function setAccountMessage(message, isError = false) {
@@ -1345,19 +1376,110 @@ function setAccountMessage(message, isError = false) {
 function renderAccountManager() {
   const current = getCurrentAccount();
   const switchableAccounts = listLocalAccounts().filter((account) => account.id !== current.id);
-  const copyGuestProgress = current.type === "guest" && hasMeaningfulStudyData();
+  const canCopyCurrentProgress = current.type !== "cloud" && hasMeaningfulStudyData();
+  const cloudStatus = getCloudStatus();
+  const currentIdentity = current.type === "cloud"
+    ? `${escapeHtml(current.email)} · 云账户`
+    : current.type === "local"
+      ? `@${escapeHtml(current.username)} · 本机账户`
+      : "访客模式 · 无需登录";
   const holder = $("#account-dialog-content");
   holder.innerHTML = `
-    <div class="account-security-note"><strong>当前为本机账户功能</strong><p>不同账户可独立保存学习记录；口令经过哈希处理，但数据仍只在当前浏览器，清理浏览器数据后可能丢失。</p></div>
+    <div class="account-security-note"><strong>本地优先 + 云端同步</strong><p>所有操作先保存在当前设备；登录云账户后自动同步任务、词汇、句子、练习、草稿和笔记。录音暂不上传云端。</p></div>
     <div class="account-current-card">
       <span class="account-summary-avatar">${escapeHtml(accountInitials(current.displayName))}</span>
-      <div><small>当前身份</small><strong>${escapeHtml(current.displayName)}</strong><p>${current.type === "local" ? `@${escapeHtml(current.username)} · 本机账户` : "访客模式 · 无需登录"}</p></div>
+      <div><small>当前身份</small><strong>${escapeHtml(current.displayName)}</strong><p>${currentIdentity}</p></div>
     </div>
     <p class="account-message" id="account-message" role="status" hidden></p>
+    ${current.type !== "cloud" ? `<section class="account-form-section"><h4>跨设备云账户</h4><p class="account-form-hint">使用邮箱和密码登录，可在电脑与手机恢复同一份学习记录。</p><form id="cloud-account-form" class="account-form account-cloud-grid"><label>邮箱<input id="cloud-account-email" type="email" maxlength="160" autocomplete="email" placeholder="name@example.com" required /></label><label>密码<input id="cloud-account-password" type="password" minlength="6" maxlength="72" autocomplete="current-password" required /></label><label>注册显示名称<input id="cloud-account-name" maxlength="20" autocomplete="nickname" placeholder="仅注册时填写" /></label>${canCopyCurrentProgress ? '<label class="account-copy-option"><input id="copy-current-to-cloud" type="checkbox" checked /> 首次登录或注册后迁移当前进度</label>' : ""}<div class="cloud-auth-actions"><button class="primary-button" type="submit">登录云账户</button><button class="outline-button" type="button" id="register-cloud-account">注册云账户</button></div></form><p class="cloud-mail-note">当前 Supabase 默认邮件服务通常只向项目团队邮箱发送确认邮件；面向所有用户开放注册前，需要在 Supabase 配置自定义 SMTP。</p></section>` : `<section class="account-form-section"><h4>云同步管理</h4><div class="cloud-account-status" data-status="${escapeHtml(cloudStatus.state)}"><i></i><div><strong>${escapeHtml(cloudStatus.label)}</strong><p>${escapeHtml(cloudStatus.detail)}</p></div></div><div class="cloud-account-actions"><button type="button" class="primary-button" id="sync-cloud-now">立即上传本机记录</button><button type="button" class="outline-button" id="download-cloud-state">从云端恢复</button><button type="button" class="outline-button" id="logout-cloud-account">退出云账户</button></div></section>`}
     ${switchableAccounts.length ? `<section class="account-form-section"><h4>登录其他账户</h4><form id="switch-account-form" class="account-form"><label>账户<select id="switch-account-id" required>${switchableAccounts.map((account) => `<option value="${escapeHtml(account.id)}">${escapeHtml(account.displayName)} · @${escapeHtml(account.username)}</option>`).join("")}</select></label><label>登录口令<input id="switch-account-password" type="password" minlength="6" maxlength="64" autocomplete="current-password" required /></label><button class="outline-button" type="submit">登录并切换</button></form></section>` : ""}
-    <section class="account-form-section"><h4>创建新账户</h4><form id="create-account-form" class="account-form account-create-grid"><label>显示名称<input id="new-account-name" maxlength="20" autocomplete="nickname" placeholder="例如：小李" required /></label><label>用户名<input id="new-account-username" minlength="2" maxlength="24" autocomplete="username" placeholder="文字、字母或数字" required /></label><label>登录口令<input id="new-account-password" type="password" minlength="6" maxlength="64" autocomplete="new-password" required /></label><label>确认口令<input id="new-account-password-confirm" type="password" minlength="6" maxlength="64" autocomplete="new-password" required /></label>${copyGuestProgress ? '<label class="account-copy-option"><input id="copy-guest-progress" type="checkbox" checked /> 将当前访客进度复制到新账户</label>' : ""}<button class="primary-button" type="submit">创建并登录</button></form></section>
+    <section class="account-form-section"><h4>创建本机账户</h4><form id="create-account-form" class="account-form account-create-grid"><label>显示名称<input id="new-account-name" maxlength="20" autocomplete="nickname" placeholder="例如：小李" required /></label><label>用户名<input id="new-account-username" minlength="2" maxlength="24" autocomplete="username" placeholder="文字、字母或数字" required /></label><label>登录口令<input id="new-account-password" type="password" minlength="6" maxlength="64" autocomplete="new-password" required /></label><label>确认口令<input id="new-account-password-confirm" type="password" minlength="6" maxlength="64" autocomplete="new-password" required /></label>${hasMeaningfulStudyData() ? '<label class="account-copy-option"><input id="copy-current-progress" type="checkbox" /> 将当前进度复制到新本机账户</label>' : ""}<button class="primary-button" type="submit">创建并登录</button></form></section>
     ${current.type === "local" ? `<section class="account-form-section account-session-actions"><h4>当前账户操作</h4><button type="button" class="outline-button" id="logout-account">退出到访客模式</button><form id="delete-account-form" class="account-delete-form"><input id="delete-account-password" type="password" minlength="6" maxlength="64" autocomplete="current-password" placeholder="输入口令确认删除" required /><button type="submit" class="danger-button">删除此账户及本机数据</button></form></section>` : ""}
-    <div class="cloud-sync-status"><span>云同步</span><div><strong>尚未启用跨设备同步</strong><p>后续接入安全云端认证后，可在电脑和手机间恢复同一账户记录；当前版本不会把学习数据上传到服务器。</p></div></div>`;
+    <div class="cloud-sync-status"><span>隐私</span><div><strong>云端仅同步轻量学习状态</strong><p>不会上传本机账户口令和录音；Publishable key 只能按 RLS 访问当前登录用户自己的记录。</p><a class="text-link cloud-schema-link" href="./supabase/schema.sql" target="_blank" rel="noreferrer">打开数据库初始化脚本 →</a></div></div>`;
+
+  if (cloudInitializationError) setAccountMessage(cloudInitializationError, true);
+
+  $("#cloud-account-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submitButton = event.currentTarget.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    setAccountMessage("正在登录云账户……");
+    try {
+      const email = $("#cloud-account-email").value;
+      const data = await signInCloud(email, $("#cloud-account-password").value);
+      if ($("#copy-current-to-cloud")?.checked) stageCloudMigration(email, state);
+      setCloudAccount(data.user);
+      location.reload();
+    } catch (error) {
+      setAccountMessage(error.message, true);
+      submitButton.disabled = false;
+    }
+  });
+
+  $("#register-cloud-account")?.addEventListener("click", async (event) => {
+    const form = $("#cloud-account-form");
+    if (!form.reportValidity()) return;
+    const displayName = $("#cloud-account-name").value.trim();
+    if (!displayName) {
+      setAccountMessage("注册云账户时请填写显示名称。", true);
+      $("#cloud-account-name").focus();
+      return;
+    }
+    event.currentTarget.disabled = true;
+    setAccountMessage("正在注册云账户……");
+    try {
+      const email = $("#cloud-account-email").value;
+      const data = await signUpCloud(email, $("#cloud-account-password").value, displayName);
+      if ($("#copy-current-to-cloud")?.checked) stageCloudMigration(email, state);
+      if (data.session?.user) {
+        setCloudAccount(data.session.user);
+        location.reload();
+        return;
+      }
+      setAccountMessage("注册申请已提交，请打开邮箱确认后返回网站登录。若未收到邮件，请先配置 Supabase 自定义 SMTP。");
+      event.currentTarget.disabled = false;
+    } catch (error) {
+      setAccountMessage(error.message, true);
+      event.currentTarget.disabled = false;
+    }
+  });
+
+  $("#sync-cloud-now")?.addEventListener("click", async (event) => {
+    event.currentTarget.disabled = true;
+    setAccountMessage("正在上传本机学习记录……");
+    try {
+      await forceUploadCloudState(state);
+      setAccountMessage("云同步完成。");
+      renderCloudIndicator();
+    } catch (error) {
+      setAccountMessage(error.message, true);
+    } finally {
+      event.currentTarget.disabled = false;
+    }
+  });
+
+  $("#download-cloud-state")?.addEventListener("click", async (event) => {
+    if (!confirm("确定用云端记录覆盖当前设备上的学习记录吗？建议先导出本机备份。")) return;
+    event.currentTarget.disabled = true;
+    setAccountMessage("正在下载云端学习记录……");
+    try {
+      state = await forceDownloadCloudState();
+      saveState(state, false, current.id);
+      location.reload();
+    } catch (error) {
+      setAccountMessage(error.message, true);
+      event.currentTarget.disabled = false;
+    }
+  });
+
+  $("#logout-cloud-account")?.addEventListener("click", async () => {
+    try {
+      await signOutCloud();
+    } catch {}
+    clearCloudAccount();
+    useGuestAccount();
+    location.reload();
+  });
 
   $("#switch-account-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -1367,6 +1489,10 @@ function renderAccountManager() {
     try {
       const accountId = $("#switch-account-id").value;
       await authenticateLocalAccount(accountId, $("#switch-account-password").value);
+      if (current.type === "cloud") {
+        await signOutCloud();
+        clearCloudAccount();
+      }
       setActiveAccount(accountId);
       location.reload();
     } catch (error) {
@@ -1391,7 +1517,11 @@ function renderAccountManager() {
         username: $("#new-account-username").value,
         password,
       });
-      if ($("#copy-guest-progress")?.checked) saveStateForAccount(state, account.id, false);
+      if ($("#copy-current-progress")?.checked) saveStateForAccount(state, account.id, false);
+      if (current.type === "cloud") {
+        await signOutCloud();
+        clearCloudAccount();
+      }
       setActiveAccount(account.id);
       location.reload();
     } catch (error) {
@@ -1424,9 +1554,37 @@ function renderAccountManager() {
   });
 }
 
+async function initializeCloudSession() {
+  try {
+    const session = await initializeCloudAuth();
+    if (!session?.user) {
+      if (getCurrentAccount().type === "cloud") {
+        clearCloudAccount();
+        useGuestAccount();
+        state = loadState();
+      }
+      return;
+    }
+    const account = setCloudAccount(session.user);
+    state = loadState(account.id);
+    const result = await reconcileCloudState(
+      state,
+      (remote) => confirm(`云端已有版本 ${remote.revision} 的学习记录。确定用登录前保存的本机进度覆盖云端吗？\n\n选择“取消”将使用云端记录。`),
+    );
+    state = result.state;
+    saveState(state, false, account.id);
+  } catch (error) {
+    cloudInitializationError = error.message;
+  }
+}
+
 function initializeDataManager() {
   renderAccountChrome();
   $("#data-button").addEventListener("click", () => {
+    renderAccountChrome();
+    $("#data-dialog").showModal();
+  });
+  $("#cloud-sync-indicator").addEventListener("click", () => {
     renderAccountChrome();
     $("#data-dialog").showModal();
   });
@@ -1443,6 +1601,7 @@ function initializeDataManager() {
   $("#import-data").addEventListener("change", async (event) => {
     try {
       state = await importState(event.target.files[0]);
+      if (getCurrentAccount().type === "cloud") await forceUploadCloudState(state);
       alert("备份导入成功，页面将刷新。" );
       location.reload();
     } catch (error) {
@@ -1455,6 +1614,15 @@ function initializeDataManager() {
     const accountId = getActiveAccountId();
     state = resetState(accountId);
     await deleteRecordingsForAccount(accountId).catch(() => {});
+    if (account.type === "cloud") {
+      saveState(state, false, accountId);
+      try {
+        await forceUploadCloudState(state);
+      } catch (error) {
+        queueCloudSync(state, { immediate: true });
+        alert(`本机数据已清空，但云端清空失败：${error.message}`);
+      }
+    }
     location.reload();
   });
 }
@@ -1532,8 +1700,11 @@ function initializePractice() {
   });
 }
 
-function initialize() {
+async function initialize() {
+  await initializeCloudSession();
   $("#release-link").dataset.version = APP_VERSION;
+  subscribeCloudStatus(renderCloudIndicator);
+  window.addEventListener("online", () => queueCloudSync(state, { immediate: true }));
   initializeNavigation();
   initializeVocabulary();
   initializePractice();
@@ -1548,4 +1719,7 @@ function initialize() {
   navigate(ROUTE_TITLES[initialRoute] ? initialRoute : "dashboard", { instant: true });
 }
 
-initialize();
+initialize().catch((error) => {
+  console.error(error);
+  alert("应用初始化失败，请刷新页面重试。" );
+});

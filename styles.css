@@ -264,6 +264,48 @@ button {
   gap: 11px;
 }
 
+.cloud-sync-button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--surface);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.cloud-sync-button i,
+.cloud-account-status i {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #9b9f9d;
+}
+
+.cloud-sync-button[data-status="synced"] i,
+.cloud-account-status[data-status="synced"] i { background: #4f9578; }
+.cloud-sync-button[data-status="syncing"] i,
+.cloud-sync-button[data-status="connecting"] i,
+.cloud-account-status[data-status="syncing"] i,
+.cloud-account-status[data-status="connecting"] i { background: var(--orange); animation: sync-pulse 1.2s infinite; }
+.cloud-sync-button[data-status="pending"] i,
+.cloud-sync-button[data-status="offline"] i,
+.cloud-account-status[data-status="pending"] i,
+.cloud-account-status[data-status="offline"] i { background: #c49b38; }
+.cloud-sync-button[data-status="error"] i,
+.cloud-sync-button[data-status="conflict"] i,
+.cloud-account-status[data-status="error"] i,
+.cloud-account-status[data-status="conflict"] i { background: #b95858; }
+
+@keyframes sync-pulse {
+  50% { opacity: 0.35; transform: scale(0.75); }
+}
+
 .avatar-button {
   display: grid;
   width: 48px;
@@ -2591,6 +2633,11 @@ dialog::backdrop {
   font-weight: 800;
 }
 
+.account-mode-badge.cloud {
+  color: #3f5f91;
+  background: #e2e9f4;
+}
+
 .account-dialog-card {
   max-height: min(88vh, 820px);
   overflow-y: auto;
@@ -2648,6 +2695,22 @@ dialog::backdrop {
   font-size: 17px;
 }
 
+.account-form-hint,
+.cloud-mail-note {
+  margin: -5px 0 12px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.cloud-mail-note {
+  margin: 11px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: #7a642a;
+  background: #f3edd9;
+}
+
 .account-form {
   display: grid;
   grid-template-columns: 1fr 1fr auto;
@@ -2657,6 +2720,50 @@ dialog::backdrop {
 
 .account-create-grid {
   grid-template-columns: 1fr 1fr;
+}
+
+.account-cloud-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+.account-cloud-grid > label:nth-child(3),
+.cloud-auth-actions {
+  grid-column: 1 / -1;
+}
+
+.cloud-auth-actions,
+.cloud-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.cloud-account-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.cloud-account-status i {
+  margin-top: 5px;
+}
+
+.cloud-account-status strong {
+  display: block;
+}
+
+.cloud-account-status p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.cloud-account-actions {
+  margin-top: 10px;
 }
 
 .account-form label {
@@ -2727,6 +2834,14 @@ dialog::backdrop {
   border-radius: 999px;
   color: #7a642a;
   background: #e9dfbd;
+}
+
+.cloud-schema-link {
+  display: inline-block;
+  margin-top: 7px;
+  color: #6f5720;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .danger-button {
@@ -2857,12 +2972,19 @@ dialog::backdrop {
   .topbar h1 { font-size: 23px; }
   .topbar-actions .ghost-button { display: none; }
   .avatar-button { width: 40px; height: 40px; font-size: 10px; }
+  .cloud-sync-button { min-width: 36px; padding: 0 10px; }
+  .cloud-sync-button span { display: none; }
   .account-form,
   .account-create-grid,
+  .account-cloud-grid,
   .account-delete-form { grid-template-columns: 1fr; }
+  .account-cloud-grid > label:nth-child(3),
+  .cloud-auth-actions { grid-column: auto; }
   .account-form .primary-button,
   .account-form .outline-button,
   .account-delete-form .danger-button { width: 100%; }
+  .cloud-auth-actions,
+  .cloud-account-actions { display: grid; grid-template-columns: 1fr; }
   .hero-card { min-height: 510px; grid-template-columns: 1fr; align-content: space-between; padding: 28px 24px; }
   .hero-copy h2 { font-size: 35px; }
   .countdown-card { min-height: 150px; }
