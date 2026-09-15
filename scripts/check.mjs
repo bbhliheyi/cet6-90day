@@ -80,7 +80,7 @@ const html = await readFile(new URL("index.html", root), "utf8");
 for (const id of ["view-dashboard", "view-plan", "view-vocabulary", "view-review", "view-sentences", "view-eartraining", "view-practice", "view-tests", "view-lessons", "view-notices", "view-notes", "view-resources"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`缺少页面区域：${id}`);
 }
-for (const id of ["continue-learning", "today-primary-action", "daily-mode-tabs", "daily-mode-summary", "backup-reminder", "plan-weekly", "ear-day-label", "account-summary", "account-dialog-content", "cloud-sync-indicator", "selection-translator", "saved-vocabulary-list", "vocab-book-select", "vocab-review-due", "vocab-browser-results", "review-center"]) {
+for (const id of ["continue-learning", "today-primary-action", "daily-mode-tabs", "daily-mode-summary", "backup-reminder", "plan-weekly", "ear-day-label", "account-summary", "account-dialog-content", "cloud-sync-indicator", "selection-translator", "saved-vocabulary-list", "vocab-book-select", "vocab-review-due", "vocab-browser-results", "review-center", "personal-plan-button", "pause-plan-button", "personal-plan-panel", "weekly-report", "achievement-panel", "vocabulary-dimension-panel", "expression-library", "onboarding-dialog"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`缺少状态组件：${id}`);
 }
 for (const mode of [15, 30, 60, 130]) {
@@ -115,6 +115,9 @@ for (const marker of ["function initializeSelectionTranslator()", "function save
 for (const marker of ["完整英文原文与逐句精听", "data-ear-segment-speak", "copy-ear-transcript", "earTranscriptText(unit)"]) {
   if (!appSource.includes(marker)) throw new Error(`磨耳朵原文功能缺少：${marker}`);
 }
+for (const marker of ["function openOnboardingDialog()", "function renderWeeklyReport()", "function renderAchievements()", "function toggleTodayPause()", "function vocabularyDimensionScores(record)", "function responseAnalysis(module, text)", "function renderSpeakingRecordings(item)", "getRecordings(\"speaking\""]) {
+  if (!appSource.includes(marker)) throw new Error(`个性化学习闭环缺少：${marker}`);
+}
 
 const productionFiles = ["package.json", "index.html", "src/app.js", "src/content.js", "src/practice-bank.js", "src/mock-exams.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/vocabulary-bank.js", "src/vocabulary-enrichment.js", "src/storage.js", "src/accounts.js", "src/cloud.js", "src/cloud-config.js", "src/db.js"];
 const forbiddenPatterns = ["z-ai-web-dev-sdk", "apiKey:", "CHATGLM_API_KEY", "sb_secret_"];
@@ -141,7 +144,9 @@ const storageModule = await import(`../src/storage.js?quality=${APP_VERSION}`);
 if (storageModule.DEFAULT_STATE.vocabularySettings.book !== "cet6" || storageModule.DEFAULT_STATE.vocabularySettings.mode !== "smart") {
   throw new Error("词汇默认学习设置错误");
 }
-if (storageModule.DEFAULT_STATE.profile.dailyMode !== 130) throw new Error("每日学习时长默认值错误");
+if (storageModule.DEFAULT_STATE.profile.dailyMode !== 130 || storageModule.DEFAULT_STATE.profile.onboardingCompleted !== false || storageModule.DEFAULT_STATE.profile.weeklyGoalDays !== 5) {
+  throw new Error("个性化计划默认值错误");
+}
 localStorage.setItem("cet6-90day-state-v1", JSON.stringify({ ...storageModule.DEFAULT_STATE, studyMinutes: 7 }));
 if (storageModule.loadState("guest").studyMinutes !== 7 || localStorage.getItem("cet6-90day-state-v1")) {
   throw new Error("旧版访客数据迁移失败");

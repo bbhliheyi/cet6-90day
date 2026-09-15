@@ -1,4 +1,4 @@
-import { getActiveAccountId, getCurrentAccount } from "./accounts.js?v=0.9.0";
+import { getActiveAccountId, getCurrentAccount } from "./accounts.js?v=1.0.0";
 
 const LEGACY_STORAGE_KEY = "cet6-90day-state-v1";
 const ACCOUNT_STORAGE_PREFIX = "cet6-90day-state-v2";
@@ -10,6 +10,17 @@ export const DEFAULT_STATE = Object.freeze({
     targetScore: 500,
     dailyMode: 130,
     takesOralExam: true,
+    onboardingCompleted: false,
+    onboardingDeferredAt: null,
+    reminderTime: "20:30",
+    remindersEnabled: false,
+    weeklyGoalDays: 5,
+    priorities: [],
+    diagnostic: null,
+  },
+  planSettings: {
+    pausedDates: {},
+    lastAdjustedAt: null,
   },
   completedTasks: {},
   completedDays: {},
@@ -20,9 +31,14 @@ export const DEFAULT_STATE = Object.freeze({
     dailyNew: 30,
   },
   savedVocabulary: [],
+  expressionLibrary: [],
   sentenceProgress: {},
   earTraining: {},
   practiceAttempts: [],
+  speakingAssessments: {},
+  reminders: {
+    lastNotificationDate: null,
+  },
   mockSession: null,
   mockResults: [],
   drafts: {},
@@ -51,13 +67,21 @@ function mergeState(candidate) {
     ...base,
     ...candidate,
     profile: { ...base.profile, ...(candidate.profile || {}) },
+    planSettings: {
+      ...base.planSettings,
+      ...(candidate.planSettings || {}),
+      pausedDates: { ...base.planSettings.pausedDates, ...(candidate.planSettings?.pausedDates || {}) },
+    },
     completedTasks: { ...base.completedTasks, ...(candidate.completedTasks || {}) },
     completedDays: { ...base.completedDays, ...(candidate.completedDays || {}) },
     vocabulary: { ...base.vocabulary, ...(candidate.vocabulary || {}) },
     vocabularySettings: { ...base.vocabularySettings, ...(candidate.vocabularySettings || {}) },
     savedVocabulary: Array.isArray(candidate.savedVocabulary) ? candidate.savedVocabulary : [],
+    expressionLibrary: Array.isArray(candidate.expressionLibrary) ? candidate.expressionLibrary : [],
     sentenceProgress: { ...base.sentenceProgress, ...(candidate.sentenceProgress || {}) },
     earTraining: { ...base.earTraining, ...(candidate.earTraining || {}) },
+    speakingAssessments: { ...base.speakingAssessments, ...(candidate.speakingAssessments || {}) },
+    reminders: { ...base.reminders, ...(candidate.reminders || {}) },
     drafts: { ...base.drafts, ...(candidate.drafts || {}) },
     mockSession: candidate.mockSession || null,
     mockResults: Array.isArray(candidate.mockResults) ? candidate.mockResults : [],

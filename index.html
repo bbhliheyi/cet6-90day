@@ -11,7 +11,7 @@
     <title>大学英语六级 · 90天通关训练营</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=0.9.0" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.0" />
   </head>
   <body>
     <div class="app-shell">
@@ -122,7 +122,12 @@
               <button type="button" data-daily-mode="130"><strong>130</strong><span>分钟完整版</span></button>
             </div>
             <p class="daily-mode-summary" id="daily-mode-summary"></p>
+            <div class="daily-mode-actions">
+              <button type="button" class="text-button" id="personal-plan-button">设置目标与重新诊断</button>
+              <button type="button" class="text-button" id="pause-plan-button">今天暂停计划</button>
+            </div>
           </article>
+          <article class="personal-plan-panel panel" id="personal-plan-panel"></article>
           <article class="today-standard panel" id="today-standard"></article>
           <article class="catch-up-panel panel" id="catch-up-panel" hidden></article>
           <div class="today-task-sections" id="today-tasks"></div>
@@ -140,6 +145,8 @@
               <div class="skill-bars" id="skill-bars"></div>
             </article>
 
+            <article class="panel weekly-report-panel" id="weekly-report"></article>
+
             <article class="panel download-panel">
               <span class="download-icon">⌄</span>
               <div>
@@ -150,6 +157,7 @@
               <a class="outline-button" id="release-link" href="https://github.com/bbhliheyi/cet6-90day/releases" target="_blank" rel="noreferrer">查看下载页</a>
             </article>
             <article class="panel weakness-panel" id="weakness-report"></article>
+            <article class="panel achievement-panel" id="achievement-panel"></article>
           </div>
         </section>
 
@@ -297,6 +305,7 @@
                 </div>
                 <div id="memory-profile"></div>
               </article>
+              <article class="panel vocabulary-dimension-panel" id="vocabulary-dimension-panel"></article>
             </div>
           </div>
           <article class="panel saved-vocabulary-panel">
@@ -338,6 +347,7 @@
             <div><strong>核心句练什么</strong><p>记住可复用句型和搭配，最终能脱离原主题主动输出。</p></div>
             <div><strong>今日达标</strong><p>3句听读、至少2句汉译英、1句完成写作或口语主题改写。</p></div>
           </article>
+          <article class="panel expression-library-panel" id="expression-library"></article>
           <div class="sentence-list" id="sentence-list"></div>
         </section>
 
@@ -417,7 +427,7 @@
               <h2>官方通知</h2>
               <p>展示全国与省级官方信息；校内资格和安排始终以报名系统与所在学校通知为准。</p>
             </div>
-            <span class="verified-chip">核对日期：2026-09-11</span>
+            <span class="verified-chip">最近核对：2026-09-15</span>
           </div>
 
           <div class="notice-alert">
@@ -596,8 +606,18 @@
       </form>
     </dialog>
 
+    <dialog id="onboarding-dialog">
+      <div class="dialog-card onboarding-dialog-card">
+        <div class="card-heading">
+          <div><p class="eyebrow">PERSONAL STUDY PLAN</p><h3>目标设置与快速诊断</h3></div>
+          <button type="button" class="icon-button" id="close-onboarding-dialog" aria-label="关闭">×</button>
+        </div>
+        <div id="onboarding-content"></div>
+      </div>
+    </dialog>
+
     <div id="selection-translator" class="selection-translator" hidden role="dialog" aria-label="选区翻译工具"></div>
 
-    <script type="module" src="./src/app.js?v=0.9.0"></script>
+    <script type="module" src="./src/app.js?v=1.0.0"></script>
   </body>
 </html>
