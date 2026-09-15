@@ -106,6 +106,9 @@ for (const marker of ["function openTask(item, day)", "data-dashboard-open-task"
 for (const marker of ["function initializeSelectionTranslator()", "function saveCurrentSelectionToVocabulary()", "function saveCurrentSelectionToNotes()", "onlineTranslationForSelection"]) {
   if (!appSource.includes(marker)) throw new Error(`选区翻译功能缺少：${marker}`);
 }
+for (const marker of ["完整英文原文与逐句精听", "data-ear-segment-speak", "copy-ear-transcript", "earTranscriptText(unit)"]) {
+  if (!appSource.includes(marker)) throw new Error(`磨耳朵原文功能缺少：${marker}`);
+}
 
 const productionFiles = ["package.json", "index.html", "src/app.js", "src/content.js", "src/practice-bank.js", "src/mock-exams.js", "src/ear-training.js", "src/lessons.js", "src/resources.js", "src/vocabulary-bank.js", "src/vocabulary-enrichment.js", "src/storage.js", "src/accounts.js", "src/cloud.js", "src/cloud-config.js", "src/db.js"];
 const forbiddenPatterns = ["z-ai-web-dev-sdk", "apiKey:", "CHATGLM_API_KEY", "sb_secret_"];

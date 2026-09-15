@@ -9,14 +9,14 @@ import {
   VOCABULARY,
   buildPlan,
   dailyCoreSentences,
-} from "./content.js?v=0.8.0";
-import { RESOURCE_CATALOG } from "./resources.js?v=0.8.0";
-import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.8.0";
-import { MOCK_EXAMS, REAL_EXAM_INDEX } from "./mock-exams.js?v=0.8.0";
-import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.8.0";
-import { CET_VOCABULARY_DATA } from "./vocabulary-bank.js?v=0.8.0";
-import { VOCABULARY_ENRICHMENT_MAP, VOCABULARY_PHRASES } from "./vocabulary-enrichment.js?v=0.8.0";
-import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.8.0";
+} from "./content.js?v=0.8.1";
+import { RESOURCE_CATALOG } from "./resources.js?v=0.8.1";
+import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.8.1";
+import { MOCK_EXAMS, REAL_EXAM_INDEX } from "./mock-exams.js?v=0.8.1";
+import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.8.1";
+import { CET_VOCABULARY_DATA } from "./vocabulary-bank.js?v=0.8.1";
+import { VOCABULARY_ENRICHMENT_MAP, VOCABULARY_PHRASES } from "./vocabulary-enrichment.js?v=0.8.1";
+import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.8.1";
 import {
   authenticateLocalAccount,
   clearCloudAccount,
@@ -28,7 +28,7 @@ import {
   setCloudAccount,
   setActiveAccount,
   useGuestAccount,
-} from "./accounts.js?v=0.8.0";
+} from "./accounts.js?v=0.8.1";
 import {
   deleteStateForAccount,
   exportState,
@@ -37,7 +37,7 @@ import {
   resetState,
   saveState,
   saveStateForAccount,
-} from "./storage.js?v=0.8.0";
+} from "./storage.js?v=0.8.1";
 import {
   forceDownloadCloudState,
   forceUploadCloudState,
@@ -50,7 +50,7 @@ import {
   signUpCloud,
   stageCloudMigration,
   subscribeCloudStatus,
-} from "./cloud.js?v=0.8.0";
+} from "./cloud.js?v=0.8.1";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -1543,7 +1543,26 @@ function recommendedEarRate(day) {
 }
 
 function renderEarTranscript(unit) {
-  return unit.segments.map((segment) => `<p><b>${escapeHtml(segment.speaker)}：</b>${escapeHtml(segment.text)}</p>`).join("");
+  return unit.segments.map((segment, index) => `<article class="ear-transcript-segment"><div><span>${String(index + 1).padStart(2, "0")}</span><p><b>${escapeHtml(segment.speaker)}：</b>${escapeHtml(segment.text)}</p></div><button type="button" class="icon-button" data-ear-segment-speak="${index}" aria-label="播放第${index + 1}句">▶</button></article>`).join("");
+}
+
+function earTranscriptText(unit) {
+  return unit.segments.map((segment) => `${segment.speaker}: ${segment.text}`).join("\n");
+}
+
+async function copyPlainText(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.append(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  textarea.remove();
 }
 
 function speakEarTraining(unit, rate = 0.8) {
@@ -1583,16 +1602,18 @@ function renderEarTraining() {
   const dictationPassed = progress.dictation >= Math.min(2, dictationTotal);
   const completedStages = [progress.blind, progress.gist, dictationPassed, progress.shadow, progress.retell].filter(Boolean).length;
   const recommendedRate = recommendedEarRate(day);
+  const transcriptPanel = `<details class="ear-transcript ear-transcript-panel" ${progress.gistAnswered ? "open" : ""}><summary><span><strong>完整英文原文与逐句精听</strong><small>${progress.gistAnswered ? "主旨题已作答，可以对照错因并跟读" : "答题前也可以展开；建议先完成一次盲听"}</small></span><b>共${unit.segments.length}段 · 展开 →</b></summary><div class="ear-transcript-toolbar"><button type="button" class="outline-button" id="play-ear-transcript">▶ 全文朗读</button><button type="button" class="outline-button" id="copy-ear-transcript">复制原文</button><span id="copy-ear-transcript-status"></span></div><div class="ear-transcript-list">${renderEarTranscript(unit)}</div><div class="ear-signal-list"><b>本段信号词：</b>${unit.signals.map((signal) => `<span class="keyword-chip">${escapeHtml(signal)}</span>`).join(" ")}</div></details>`;
   $("#ear-day-label").textContent = `DAY ${day} · ${completedStages}/5 步 · 共${EAR_TRAINING_UNITS.length}段${completedStages === 5 ? " · 今日达标" : ""}`;
   $("#ear-workspace").innerHTML = `<div class="workspace-heading"><div><p class="eyebrow">${escapeHtml(unit.type)} · ${escapeHtml(unit.sourceLabel || "本站原创素材")}</p><h3>${escapeHtml(unit.title)}</h3><p class="muted">${escapeHtml(unit.context)}</p><small class="ear-source-note">${escapeHtml(unit.sourceDetail || "本站原创素材")}</small></div><button class="outline-button" id="next-ear-unit">换一段</button></div>
     <div class="ear-meta"><span>训练目标：${escapeHtml(unit.target)}</span><strong>${completedStages}/5 步</strong></div>
     <div class="ear-progress"><i style="width:${(completedStages / 5) * 100}%"></i></div>
     <div class="audio-training ear-audio-card"><div class="audio-visual" aria-hidden="true">${Array.from({ length: 44 }, (_, index) => `<i style="height:${18 + ((index * 17) % 46)}%"></i>`).join("")}</div><div class="audio-controls"><button class="primary-button" id="play-ear">▶ ${progress.blind ? "再次盲听" : "开始盲听"}</button><button class="ghost-button" id="stop-ear">停止</button><label>速度<select id="ear-rate"><option value="0.8" ${recommendedRate === "0.8" ? "selected" : ""}>0.8×</option><option value="0.9" ${recommendedRate === "0.9" ? "selected" : ""}>0.9×</option><option value="1" ${recommendedRate === "1.0" ? "selected" : ""}>1.0×</option><option value="1.1" ${recommendedRate === "1.1" ? "selected" : ""}>1.1×</option><option value="1.2" ${recommendedRate === "1.2" ? "selected" : ""}>1.2×</option></select></label></div><small class="ear-speed-tip">阶段建议 ${recommendedRate}×：从0.8×起步，每7天提高0.1×；若主旨正确率低于70%，先保持当前速度。</small></div>
     <div class="local-audio-row"><label class="file-button outline-button">导入本人授权音频<input type="file" id="ear-audio-file" accept="audio/*" hidden /></label><small>浏览器朗读仅用于流程训练；正式备考请使用官网或个人授权音频。</small><audio id="ear-local-audio" controls ${earAudioUrl ? "" : "hidden"} src="${earAudioUrl || ""}"></audio></div>
+    ${transcriptPanel}
     <div class="ear-stage"><div class="stage-heading"><span>01</span><div><strong>盲听与场景预测</strong><small>不看文本，先判断材料类型、人物/主题和信息目的。</small></div><button class="sentence-check ${progress.blind ? "is-done" : ""}" data-ear-stage="blind">${progress.blind ? "✓ 已完成" : "标记完成"}</button></div></div>
     <div class="ear-stage"><div class="stage-heading"><span>02</span><div><strong>主旨与结构题</strong><small>盲听后先作答，再查看文本；不要因漏听一个词停住。</small></div></div><div class="question-block"><strong>${escapeHtml(unit.gist.question)}</strong><div class="practice-options">${unit.gist.options.map((option, index) => `<label><input type="radio" name="ear-gist" value="${index}" ${progress.gistAnswered && progress.gistAnswer === index ? "checked" : ""} ${progress.gistAnswered ? "disabled" : ""} /><span>${String.fromCharCode(65 + index)}. ${escapeHtml(option)}</span></label>`).join("")}</div>${progress.gistAnswered ? `<div class="inline-feedback ${progress.gist ? "success" : "error"}"><strong>${progress.gist ? "主旨判断正确" : `正确答案：${String.fromCharCode(65 + unit.gist.answer)}`}</strong><p>${escapeHtml(unit.gist.explanation)}</p>${progress.gist ? "" : '<button id="retry-ear-gist">重新作答</button>'}</div>` : `<button class="primary-button" id="submit-ear-gist" ${progress.blind ? "" : "disabled"}>提交主旨判断</button>`}</div></div>
     <div class="ear-stage ${progress.gistAnswered ? "" : "is-locked"}"><div class="stage-heading"><span>03</span><div><strong>关键语块听写</strong><small>只听写3个承载意义的语块，区分词不认识和连读弱读。</small></div></div><div class="chunk-grid">${unit.focusChunks.map((chunk, index) => `<label><span>语块${index + 1}</span><input data-ear-chunk="${index}" value="${escapeHtml(progress[`chunk${index}`] || "")}" placeholder="听到后填写" ${progress.gistAnswered ? "" : "disabled"} /><small>${progress[`chunk${index}Correct`] ? "✓ 匹配" : ""}</small></label>`).join("")}</div><button class="outline-button" id="check-ear-chunks" ${progress.gistAnswered ? "" : "disabled"}>检查语块并对照文本</button><span class="save-inline" id="ear-chunk-result">${progress.dictation ? `已对${progress.dictation}/${dictationTotal}个` : ""}</span></div>
-    <div class="ear-stage ${progress.gistAnswered ? "" : "is-locked"}"><div class="stage-heading"><span>04</span><div><strong>影子跟读</strong><small>打开文本，跟在音频后复述句群；先0.8倍，再逐周提高0.1倍。</small></div><button class="sentence-check ${progress.shadow ? "is-done" : ""}" data-ear-stage="shadow" ${progress.gistAnswered ? "" : "disabled"}>${progress.shadow ? "✓ 已完成" : "跟读2轮并标记"}</button></div>${progress.gistAnswered ? `<details class="ear-transcript"><summary>查看原文与信号词</summary><div>${renderEarTranscript(unit)}</div><p><b>本段信号：</b>${unit.signals.map((signal) => `<span class="keyword-chip">${escapeHtml(signal)}</span>`).join(" ")}</p></details><div class="ear-recording-panel"><div class="recording-status"><i id="ear-recording-dot"></i><span id="ear-recording-status">录下自己的跟读，再和原音对比</span><strong id="ear-recording-duration">00:00</strong></div><div class="recording-actions"><button class="primary-button" id="start-ear-recording">开始跟读录音</button><button class="outline-button" id="stop-ear-recording" disabled>停止并保存</button></div><div id="latest-ear-recording"></div></div>` : ""}</div>
+    <div class="ear-stage ${progress.gistAnswered ? "" : "is-locked"}"><div class="stage-heading"><span>04</span><div><strong>影子跟读</strong><small>使用上方完整原文逐句跟读；先0.8倍，再逐周提高0.1倍。</small></div><button class="sentence-check ${progress.shadow ? "is-done" : ""}" data-ear-stage="shadow" ${progress.gistAnswered ? "" : "disabled"}>${progress.shadow ? "✓ 已完成" : "跟读2轮并标记"}</button></div>${progress.gistAnswered ? `<div class="ear-recording-panel"><div class="recording-status"><i id="ear-recording-dot"></i><span id="ear-recording-status">录下自己的跟读，再和原音对比</span><strong id="ear-recording-duration">00:00</strong></div><div class="recording-actions"><button class="primary-button" id="start-ear-recording">开始跟读录音</button><button class="outline-button" id="stop-ear-recording" disabled>停止并保存</button></div><div id="latest-ear-recording"></div></div>` : '<p class="ear-locked-tip">先完成盲听和主旨题，再进入跟读打卡；上方原文仍可随时展开查看。</p>'}</div>
     <div class="ear-stage ${progress.gistAnswered ? "" : "is-locked"}"><div class="stage-heading"><span>05</span><div><strong>复述检验</strong><small>不看原文，用2—3句英文回答下面提示。</small></div><button class="sentence-check ${progress.retell ? "is-done" : ""}" data-ear-stage="retell" ${progress.gistAnswered ? "" : "disabled"}>${progress.retell ? "✓ 已复述" : "完成复述并标记"}</button></div><p class="muted">${escapeHtml(unit.summaryPrompt)}</p><textarea class="ear-retell" data-ear-retell placeholder="记录你的英文复述或关键词……" ${progress.gistAnswered ? "" : "disabled"}>${escapeHtml(progress.draft)}</textarea></div>`;
 
   $("#next-ear-unit").addEventListener("click", () => {
@@ -1600,6 +1621,17 @@ function renderEarTraining() {
     renderEarTraining();
   });
   $("#play-ear").addEventListener("click", () => speakEarTraining(unit, Number($("#ear-rate").value)));
+  $("#play-ear-transcript").addEventListener("click", () => speakEarTraining(unit, Number($("#ear-rate").value)));
+  $$('[data-ear-segment-speak]').forEach((button) => button.addEventListener("click", () => pronounce(unit.segments[Number(button.dataset.earSegmentSpeak)].text, Number($("#ear-rate").value))));
+  $("#copy-ear-transcript").addEventListener("click", async () => {
+    const status = $("#copy-ear-transcript-status");
+    try {
+      await copyPlainText(earTranscriptText(unit));
+      status.textContent = "已复制";
+    } catch {
+      status.textContent = "复制失败，请手动选择原文";
+    }
+  });
   $("#stop-ear").addEventListener("click", () => window.speechSynthesis?.cancel());
   $("#start-ear-recording")?.addEventListener("click", () => startRecording({ id: `${unit.id}-shadow` }, {
     kind: "ear-shadow",

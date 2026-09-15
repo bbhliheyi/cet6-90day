@@ -2159,18 +2159,138 @@ button {
 
 .ear-transcript {
   margin-top: 15px;
-  padding-top: 14px;
-  border-top: 1px dashed var(--line);
   color: var(--muted);
   font-size: 12px;
 }
 
-.ear-transcript p {
-  margin: 8px 0;
+.ear-transcript-panel {
+  overflow: hidden;
+  border: 1px solid rgba(63, 124, 113, 0.28);
+  border-radius: 14px;
+  background: #f7faf7;
+}
+
+.ear-transcript-panel > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 17px;
+  color: var(--green);
+  cursor: pointer;
+  list-style: none;
+}
+
+.ear-transcript-panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ear-transcript-panel > summary span,
+.ear-transcript-panel > summary strong,
+.ear-transcript-panel > summary small {
+  display: block;
+}
+
+.ear-transcript-panel > summary strong {
+  font-size: 14px;
+}
+
+.ear-transcript-panel > summary small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.ear-transcript-panel > summary > b {
+  flex: 0 0 auto;
+  color: var(--green-2);
+  font-size: 10px;
+}
+
+.ear-transcript-panel[open] > summary {
+  border-bottom: 1px solid var(--line);
+  background: rgba(221, 237, 227, 0.44);
+}
+
+.ear-transcript-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 15px 5px;
+}
+
+.ear-transcript-toolbar span {
+  color: var(--green-2);
+  font-size: 10px;
+}
+
+.ear-transcript-list {
+  display: grid;
+  gap: 7px;
+  padding: 10px 15px 14px;
+}
+
+.ear-transcript-segment {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.ear-transcript-segment > div {
+  display: grid;
+  grid-template-columns: 25px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+}
+
+.ear-transcript-segment > div > span {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border-radius: 7px;
+  color: var(--green);
+  background: var(--mint);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.ear-transcript-segment p {
+  margin: 2px 0 0;
+  color: #3f4d48;
+  font-family: Georgia, serif;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.ear-transcript-segment .icon-button {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  color: var(--green);
+  background: var(--mint);
+  font-size: 10px;
 }
 
 .ear-transcript b {
   color: var(--green);
+}
+
+.ear-signal-list {
+  padding: 0 15px 16px;
+  line-height: 2;
+}
+
+.ear-locked-tip {
+  margin: 13px 0 0;
+  color: var(--muted);
+  font-size: 10px;
 }
 
 .ear-retell {
@@ -4016,6 +4136,10 @@ dialog::backdrop {
   .split-definition,
   .chunk-grid { grid-template-columns: 1fr; }
   .ear-workspace { padding: 18px; }
+  .ear-transcript-panel > summary { align-items: flex-start; flex-direction: column; gap: 7px; }
+  .ear-transcript-toolbar { align-items: stretch; flex-direction: column; }
+  .ear-transcript-toolbar .outline-button { width: 100%; }
+  .ear-transcript-segment p { font-size: 12px; }
   .lesson-index { grid-template-columns: 1fr; }
   .lesson-reader { padding: 18px; }
   .standard-task,
