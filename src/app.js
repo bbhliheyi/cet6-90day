@@ -9,14 +9,14 @@ import {
   VOCABULARY,
   buildPlan,
   dailyCoreSentences,
-} from "./content.js?v=0.8.1";
-import { RESOURCE_CATALOG } from "./resources.js?v=0.8.1";
-import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.8.1";
-import { MOCK_EXAMS, REAL_EXAM_INDEX } from "./mock-exams.js?v=0.8.1";
-import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS, dailyTaskGuidance } from "./lessons.js?v=0.8.1";
-import { CET_VOCABULARY_DATA } from "./vocabulary-bank.js?v=0.8.1";
-import { VOCABULARY_ENRICHMENT_MAP, VOCABULARY_PHRASES } from "./vocabulary-enrichment.js?v=0.8.1";
-import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.8.1";
+} from "./content.js?v=0.9.0";
+import { RESOURCE_CATALOG } from "./resources.js?v=0.9.0";
+import { EAR_TRAINING_UNITS } from "./ear-training.js?v=0.9.0";
+import { MOCK_EXAMS, REAL_EXAM_INDEX } from "./mock-exams.js?v=0.9.0";
+import { LESSONS, LESSON_BY_ID as LESSON_LIBRARY, MODULE_ANALYSIS } from "./lessons.js?v=0.9.0";
+import { CET_VOCABULARY_DATA } from "./vocabulary-bank.js?v=0.9.0";
+import { VOCABULARY_ENRICHMENT_MAP, VOCABULARY_PHRASES } from "./vocabulary-enrichment.js?v=0.9.0";
+import { deleteRecordingsForAccount, getLatestRecording, saveRecording } from "./db.js?v=0.9.0";
 import {
   authenticateLocalAccount,
   clearCloudAccount,
@@ -28,7 +28,7 @@ import {
   setCloudAccount,
   setActiveAccount,
   useGuestAccount,
-} from "./accounts.js?v=0.8.1";
+} from "./accounts.js?v=0.9.0";
 import {
   deleteStateForAccount,
   exportState,
@@ -37,7 +37,7 @@ import {
   resetState,
   saveState,
   saveStateForAccount,
-} from "./storage.js?v=0.8.1";
+} from "./storage.js?v=0.9.0";
 import {
   forceDownloadCloudState,
   forceUploadCloudState,
@@ -50,7 +50,7 @@ import {
   signUpCloud,
   stageCloudMigration,
   subscribeCloudStatus,
-} from "./cloud.js?v=0.8.1";
+} from "./cloud.js?v=0.9.0";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -69,6 +69,44 @@ const ROUTE_TITLES = Object.freeze({
   notices: "官方通知",
   notes: "学习笔记",
   resources: "资料中心",
+});
+
+const DAILY_MODE_OPTIONS = Object.freeze([15, 30, 60, 130]);
+const DAILY_MODE_LABELS = Object.freeze({
+  15: "15分钟快速版",
+  30: "30分钟基础版",
+  60: "60分钟标准版",
+  130: "130分钟完整版",
+});
+const DAILY_TASK_PRIORITIES = Object.freeze({
+  exam: 0,
+  notice: 1,
+  vocabulary: 2,
+  listening: 3,
+  review: 4,
+  reading: 5,
+  sentences: 6,
+  eartraining: 7,
+  plan: 8,
+  data: 9,
+  writing: 10,
+  translation: 10,
+  speaking: 11,
+});
+const DAILY_TASK_WEIGHTS = Object.freeze({
+  exam: 520,
+  notice: 260,
+  vocabulary: 300,
+  listening: 170,
+  review: 160,
+  reading: 130,
+  sentences: 100,
+  eartraining: 110,
+  plan: 190,
+  data: 150,
+  writing: 80,
+  translation: 80,
+  speaking: 70,
 });
 
 const PLAN = buildPlan();
@@ -300,11 +338,112 @@ function taskCompletionSummary(day, tasks) {
   };
 }
 
+function selectedDailyMode() {
+  const mode = Number(state.profile?.dailyMode);
+  return DAILY_MODE_OPTIONS.includes(mode) ? mode : 130;
+}
+
+function dailyTaskPriority(item) {
+  return DAILY_TASK_PRIORITIES[item.module] ?? 20;
+}
+
+function sortedDailyTasks(tasks) {
+  return tasks
+    .map((item, index) => ({ item, index }))
+    .sort((left, right) => dailyTaskPriority(left.item) - dailyTaskPriority(right.item) || left.index - right.index)
+    .map(({ item }) => item);
+}
+
+function recommendedTasksForMode(context, mode = selectedDailyMode()) {
+  if (!context.tasks.length) return [];
+  const sorted = sortedDailyTasks(context.tasks);
+  if (mode >= 130) return sorted;
+  const fixedExam = sorted.find((item) => item.module === "exam" && item.minutes >= 90);
+  if (fixedExam) return [fixedExam];
+
+  let best = [];
+  let bestScore = -1;
+  let bestMinutes = 0;
+  const combinations = 2 ** sorted.length;
+  for (let mask = 1; mask < combinations; mask += 1) {
+    const candidate = [];
+    let minutes = 0;
+    let score = 0;
+    for (let index = 0; index < sorted.length; index += 1) {
+      if (!(mask & (1 << index))) continue;
+      const item = sorted[index];
+      candidate.push(item);
+      minutes += item.minutes;
+      score += DAILY_TASK_WEIGHTS[item.module] ?? 50;
+    }
+    if (minutes > mode) continue;
+    score += minutes * 3;
+    if (score > bestScore || (score === bestScore && minutes > bestMinutes)) {
+      best = candidate;
+      bestScore = score;
+      bestMinutes = minutes;
+    }
+  }
+  return best.length ? best : [sorted[0]];
+}
+
+function completionTiersForTasks(tasks) {
+  const sorted = sortedDailyTasks(tasks);
+  if (!sorted.length) return { basic: [], standard: [], complete: [] };
+  const fixedExam = sorted.find((item) => item.module === "exam" && item.minutes >= 90);
+  if (fixedExam) {
+    return {
+      basic: [fixedExam],
+      standard: sorted,
+      complete: sorted,
+    };
+  }
+
+  const basic = [];
+  const append = (item) => {
+    if (item && !basic.includes(item)) basic.push(item);
+  };
+  append(sorted.find((item) => item.module === "vocabulary"));
+  append(sorted.find((item) => ["listening", "reading"].includes(item.module)));
+  append(sorted.find((item) => item.module === "review"));
+  for (const item of sorted) {
+    if (basic.length >= Math.min(3, sorted.length)) break;
+    append(item);
+  }
+
+  const standard = [...basic];
+  for (const item of sorted) {
+    if (standard.length >= Math.min(5, sorted.length)) break;
+    if (!standard.includes(item)) standard.push(item);
+  }
+  return { basic, standard, complete: sorted };
+}
+
+function tierIsComplete(day, tasks) {
+  return tasks.length > 0 && tasks.every((item) => taskIsComplete(day, item.id));
+}
+
+function primaryDailyTarget(context) {
+  const recommended = recommendedTasksForMode(context);
+  const recommendedTask = recommended.find((item) => !taskIsComplete(context.day, item.id));
+  if (recommendedTask) return { task: recommendedTask, stage: "recommended", recommended };
+  const challengeTask = sortedDailyTasks(context.tasks).find((item) => !taskIsComplete(context.day, item.id));
+  if (challengeTask) return { task: challengeTask, stage: "challenge", recommended };
+  return { task: null, stage: "complete", recommended };
+}
+
 function recalculateDay(day) {
   if (day < 1 || day > 90) return;
-  const complete = PLAN[day - 1].tasks.every((item) => taskIsComplete(day, item.id));
+  const standardTasks = completionTiersForTasks(PLAN[day - 1].tasks).standard;
+  const complete = tierIsComplete(day, standardTasks);
   if (complete) state.completedDays[day] ||= new Date().toISOString();
   else delete state.completedDays[day];
+}
+
+function reconcileCompletedDays() {
+  const before = JSON.stringify(state.completedDays || {});
+  PLAN.forEach((planDay) => recalculateDay(planDay.day));
+  return JSON.stringify(state.completedDays || {}) !== before;
 }
 
 function toggleTask(day, taskData, checked) {
@@ -365,7 +504,7 @@ function renderGlobalProgress() {
   const percent = Math.round((completed / 90) * 100);
   $("#sidebar-progress-label").textContent = `${percent}%`;
   $("#sidebar-progress-bar").style.width = `${percent}%`;
-  $("#sidebar-progress-detail").textContent = `已完成 ${completed} / 90 天`;
+  $("#sidebar-progress-detail").textContent = `标准达标 ${completed} / 90 天`;
 }
 
 function refreshProgressViews() {
@@ -413,27 +552,31 @@ function openTask(item, day) {
 
 function renderContinueLearning(context) {
   const container = $("#continue-learning");
+  const primaryButton = $("#today-primary-action");
   if (!container) return;
-  const incomplete = context.tasks.find((item) => !taskIsComplete(context.day, item.id));
-  const activity = state.lastActivity;
-  const target = activity || (incomplete ? { label: incomplete.title, detail: incomplete.detail, route: moduleRouteForTask(incomplete), practiceModule: incomplete.module } : null);
-  if (!target) {
+  const target = primaryDailyTarget(context);
+  if (!context.tasks.length) {
     container.hidden = true;
     container.innerHTML = "";
+    primaryButton.textContent = "查看学习数据";
     return;
   }
-  const route = ROUTE_TITLES[target.route] ? target.route : "plan";
-  const label = activity ? "继续上次学习" : "下一项任务";
-  const practiceModule = route === "practice" && ["listening", "reading", "writing", "translation", "speaking"].includes(target.practiceModule) ? target.practiceModule : "";
+  const mode = selectedDailyMode();
+  if (!target.task) {
+    container.hidden = false;
+    container.innerHTML = `<span class="continue-kicker">TODAY COMPLETE</span><strong>今天的全部任务已经完成</strong><small>可以查看完成层级、学习数据和本周薄弱点。</small><span class="continue-estimate">已完成</span>`;
+    primaryButton.textContent = "查看今日成果";
+    return;
+  }
+  const activity = state.lastActivity;
+  const route = moduleRouteForTask(target.task);
+  const sameActivity = activity?.route === route
+    && (route !== "practice" || !activity.practiceModule || activity.practiceModule === target.task.module);
+  const label = target.stage === "challenge" ? "当前方案已完成 · 完整挑战" : sameActivity ? "继续当前任务" : "推荐下一项";
+  const detail = sameActivity ? `${target.task.detail} · 可从上次位置继续` : target.task.detail;
   container.hidden = false;
-  container.innerHTML = `<span class="continue-kicker">${label}</span><strong>${escapeHtml(target.label)}</strong><small>${escapeHtml(target.detail || "从上次进度继续，不必重新选择。")}</small><button class="continue-button" data-continue-route="${escapeHtml(route)}" data-continue-module="${escapeHtml(practiceModule)}">${activity ? "继续" : "开始"} →</button>`;
-  $("[data-continue-route]", container).addEventListener("click", (event) => {
-    if (event.currentTarget.dataset.continueModule) {
-      activePracticeModule = event.currentTarget.dataset.continueModule;
-      activePracticeIndex = 0;
-    }
-    navigate(route);
-  });
+  container.innerHTML = `<span class="continue-kicker">${escapeHtml(label)}</span><strong>${escapeHtml(target.task.title)}</strong><small>${escapeHtml(detail)}</small><span class="continue-estimate">${target.task.minutes}分钟</span>`;
+  primaryButton.textContent = target.stage === "challenge" ? "继续完整挑战" : sameActivity ? "继续今天的学习" : `开始${DAILY_MODE_LABELS[mode]}`;
 }
 
 function renderBackupReminder() {
@@ -500,31 +643,73 @@ function currentTaskContext() {
   return { day, title: PLAN[day - 1].title, tasks: PLAN[day - 1].tasks };
 }
 
+function renderDailyModeSelector(context) {
+  const panel = $("#daily-mode-panel");
+  const summary = $("#daily-mode-summary");
+  if (!panel || !summary) return;
+  const mode = selectedDailyMode();
+  $$('[data-daily-mode]', panel).forEach((button) => {
+    const active = Number(button.dataset.dailyMode) === mode;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  if (!context.tasks.length) {
+    summary.textContent = "本周期已结束，时长模式将在下一轮计划中继续使用。";
+    return;
+  }
+  const recommended = recommendedTasksForMode(context, mode);
+  const minutes = recommended.reduce((total, item) => total + item.minutes, 0);
+  const fixedExam = recommended.length === 1 && recommended[0].module === "exam" && recommended[0].minutes >= 90 && mode < 130;
+  summary.textContent = fixedExam
+    ? `今天是完整测试日，试卷需要连续${recommended[0].minutes}分钟；系统不会把完整测试拆成无效的小片段。`
+    : `${DAILY_MODE_LABELS[mode]}推荐${recommended.length}项，共${minutes}分钟；完成后仍可继续完整挑战。`;
+}
+
+function taskCardMarkup(item, context, currentTaskId, recommended) {
+  const checked = taskIsComplete(context.day, item.id);
+  const current = item.id === currentTaskId;
+  return `<article class="task-card ${checked ? "is-complete" : ""} ${current ? "is-current-task" : ""}">
+    <label class="task-toggle" title="${checked ? "取消完成" : "标记完成"}">
+      <input type="checkbox" data-dashboard-task="${escapeHtml(item.id)}" aria-label="${checked ? "取消完成" : "标记完成"}：${escapeHtml(item.title)}" ${checked ? "checked" : ""} />
+      <span class="task-check">✓</span>
+    </label>
+    <button type="button" class="task-open-button" data-dashboard-open-task="${escapeHtml(item.id)}">
+      <span class="task-content">
+        <small>${current ? '<b class="task-current-chip">当前</b> · ' : ""}${recommended ? "今日推荐 · " : "完整挑战 · "}${escapeHtml(SKILL_LABELS[item.module] || item.module)} · ${item.minutes}分钟</small>
+        <strong>${escapeHtml(item.title)}</strong>
+        <span>${escapeHtml(item.detail)}</span>
+      </span>
+      <span class="task-enter">${checked ? "查看记录" : "进入训练"} →</span>
+    </button>
+  </article>`;
+}
+
 function renderTodayTasks(context) {
   const container = $("#today-tasks");
   if (!context.tasks.length) {
     container.innerHTML = `<article class="empty-state"><strong>本周期已结束</strong><p>请查看官方通知确认下一次考试安排，并导出本周期学习数据。</p></article>`;
     return;
   }
-  container.innerHTML = context.tasks
-    .map((item) => {
-      const checked = taskIsComplete(context.day, item.id);
-      return `<article class="task-card ${checked ? "is-complete" : ""}">
-        <label class="task-toggle" title="${checked ? "取消完成" : "标记完成"}">
-          <input type="checkbox" data-dashboard-task="${escapeHtml(item.id)}" aria-label="${checked ? "取消完成" : "标记完成"}：${escapeHtml(item.title)}" ${checked ? "checked" : ""} />
-          <span class="task-check">✓</span>
-        </label>
-        <button type="button" class="task-open-button" data-dashboard-open-task="${escapeHtml(item.id)}">
-          <span class="task-content">
-            <small>${escapeHtml(SKILL_LABELS[item.module] || item.module)} · ${item.minutes}分钟</small>
-            <strong>${escapeHtml(item.title)}</strong>
-            <span>${escapeHtml(item.detail)}</span>
-          </span>
-          <span class="task-enter">进入 →</span>
-        </button>
-      </article>`;
-    })
-    .join("");
+  const mode = selectedDailyMode();
+  const recommended = recommendedTasksForMode(context, mode);
+  const recommendedIds = new Set(recommended.map((item) => item.id));
+  const target = primaryDailyTarget(context);
+  const orderForDisplay = (tasks) => [...tasks].sort((left, right) => Number(taskIsComplete(context.day, left.id)) - Number(taskIsComplete(context.day, right.id)) || dailyTaskPriority(left) - dailyTaskPriority(right));
+  const recommendedDisplay = orderForDisplay(recommended);
+  const remainingDisplay = orderForDisplay(context.tasks.filter((item) => !recommendedIds.has(item.id)));
+  const recommendedSummary = taskCompletionSummary(context.day, recommended);
+  const recommendedMinutes = recommended.reduce((total, item) => total + item.minutes, 0);
+  const recommendationTitle = mode >= 130 ? "今日完整挑战" : `${DAILY_MODE_LABELS[mode]}推荐顺序`;
+  container.innerHTML = `<section class="today-task-section">
+    <div class="recommended-task-heading">
+      <div><p class="eyebrow">NEXT ACTIONS</p><h3>${escapeHtml(recommendationTitle)}</h3><span>按顺序完成即可，不需要重新决定学什么。</span></div>
+      <strong>${recommendedSummary.completed}/${recommendedSummary.total}项 · ${recommendedSummary.minutes}/${recommendedMinutes}分钟</strong>
+    </div>
+    <div class="task-grid">${recommendedDisplay.map((item) => taskCardMarkup(item, context, target.task?.id, true)).join("")}</div>
+  </section>${remainingDisplay.length ? `<details class="optional-task-list" ${target.stage === "challenge" ? "open" : ""}>
+    <summary><span>查看其余${remainingDisplay.length}项完整挑战</span><small>当前时长方案完成后再继续，不影响今日达标记录。</small></summary>
+    <div class="task-grid">${remainingDisplay.map((item) => taskCardMarkup(item, context, target.task?.id, false)).join("")}</div>
+  </details>` : ""}`;
 
   $$('[data-dashboard-task]', container).forEach((input) => {
     input.addEventListener("change", () => {
@@ -574,18 +759,25 @@ function renderSkillBars() {
 
 function renderDashboard() {
   const context = currentTaskContext();
+  const mode = selectedDailyMode();
+  const recommended = recommendedTasksForMode(context, mode);
+  const recommendedMinutes = recommended.reduce((total, item) => total + item.minutes, 0);
   $("#exam-countdown").textContent = countdownDays(EXAM_CONFIG.writtenExam);
   $("#today-date").textContent = formatToday();
   if (context.day === 0) {
     $("#cycle-status").textContent = "准备期";
-    $("#today-guidance").textContent = "先核对报名状态、目标分和设备，正式训练从9月13日开始。";
+    $("#today-hero-title").textContent = "准备好目标、设备和学习数据";
+    $("#today-guidance").textContent = `${DAILY_MODE_LABELS[mode]}推荐${recommended.length}项，共${recommendedMinutes}分钟；先完成最重要的一项即可开始。`;
   } else if (context.day <= 90) {
     $("#cycle-status").textContent = `DAY ${context.day}`;
-    $("#today-guidance").textContent = `${PLAN[context.day - 1].phaseLabel}：${context.title}，预计${PLAN[context.day - 1].estimatedMinutes}分钟。`;
+    $("#today-hero-title").textContent = `DAY ${context.day} · ${context.title}`;
+    $("#today-guidance").textContent = `${PLAN[context.day - 1].phaseLabel} · ${DAILY_MODE_LABELS[mode]}推荐${recommended.length}项，共${recommendedMinutes}分钟。`;
   } else {
     $("#cycle-status").textContent = "已结束";
+    $("#today-hero-title").textContent = "本周期训练已经完成";
     $("#today-guidance").textContent = "本周期90天计划已经结束，请导出数据并查看最新官方通知。";
   }
+  renderDailyModeSelector(context);
   renderTodayTasks(context);
   renderContinueLearning(context);
   renderTodayStandard(context);
@@ -606,7 +798,7 @@ function overduePlanDays() {
   return PLAN
     .filter((planDay) => planDay.day < Math.min(currentDay, 91))
     .map((planDay) => ({ planDay, progress: planDayProgress(planDay) }))
-    .filter(({ progress }) => progress.completed < progress.total);
+    .filter(({ planDay }) => !state.completedDays[planDay.day]);
 }
 
 function renderCatchUpPanel() {
@@ -620,7 +812,7 @@ function renderCatchUpPanel() {
   }
   const currentDay = getCurrentPlanDay();
   container.hidden = false;
-  container.innerHTML = `<div class="catch-up-heading"><div><p class="eyebrow">CATCH-UP · 保留记录</p><h3>有${overdue.length}天计划尚未完成</h3><p>不需要重置90天计划，也不建议把两天内容压缩成一晚。今天继续DAY ${currentDay}，每天安排一小段时间补回最重要的任务。</p></div><span class="catch-up-count">${overdue.length}天</span></div><div class="catch-up-list">${overdue.slice(0, 3).map(({ planDay, progress }) => `<div class="catch-up-row"><div><strong>DAY ${planDay.day} · ${escapeHtml(planDay.title)}</strong><small>${escapeHtml(planDay.dateLabel)} · 已完成 ${progress.completed}/${progress.total} 项</small></div><button class="outline-button" data-catch-up-day="${planDay.day}">补做这一天 →</button></div>`).join("")}</div>${overdue.length > 3 ? `<small class="catch-up-more">还有${overdue.length - 3}天未完成，进入完整计划查看。</small>` : ""}<div class="catch-up-actions"><button class="primary-button" data-catch-up-today>先做今天 DAY ${currentDay}</button><button class="text-button" data-route="plan">查看全部补做计划 →</button></div>`;
+  container.innerHTML = `<div class="catch-up-heading"><div><p class="eyebrow">CATCH-UP · 保留记录</p><h3>有${overdue.length}天尚未达到标准完成</h3><p>不需要重置90天计划，也不建议把两天内容压缩成一晚。今天继续DAY ${currentDay}，之后每天补回一项核心任务。</p></div><span class="catch-up-count">${overdue.length}天</span></div><div class="catch-up-list">${overdue.slice(0, 3).map(({ planDay, progress }) => `<div class="catch-up-row"><div><strong>DAY ${planDay.day} · ${escapeHtml(planDay.title)}</strong><small>${escapeHtml(planDay.dateLabel)} · 已完成 ${progress.completed}/${progress.total} 项 · 标准要求 ${progress.standardTotal} 项</small></div><button class="outline-button" data-catch-up-day="${planDay.day}">补做这一天 →</button></div>`).join("")}</div>${overdue.length > 3 ? `<small class="catch-up-more">还有${overdue.length - 3}天未达标，进入完整计划查看。</small>` : ""}<div class="catch-up-actions"><button class="primary-button" data-catch-up-today>先做今天 DAY ${currentDay}</button><button class="text-button" data-route="plan">查看全部补做计划 →</button></div>`;
   $$('[data-catch-up-day]', container).forEach((button) => button.addEventListener("click", () => {
     const day = Number(button.dataset.catchUpDay);
     activeTaskDay = day;
@@ -645,15 +837,22 @@ function renderTodayStandard(context) {
     container.innerHTML = `<div class="card-heading"><div><p class="eyebrow">TODAY'S STANDARD</p><h3>本周期任务已结束</h3></div></div><p class="muted">请以最新官方通知为准，导出本周期数据并等待下一轮计划。</p>`;
     return;
   }
-  const summary = taskCompletionSummary(context.day, context.tasks);
+  const mode = selectedDailyMode();
+  const recommended = recommendedTasksForMode(context, mode);
+  const summary = taskCompletionSummary(context.day, recommended);
+  const recommendedMinutes = recommended.reduce((total, item) => total + item.minutes, 0);
   const phase = context.day > 0 && context.day <= 90 ? PLAN[context.day - 1].phaseLabel : "准备期";
-  container.innerHTML = `<div class="card-heading"><div><p class="eyebrow">TODAY'S STANDARD · ${context.day > 0 ? `DAY ${context.day}` : "PREP"}</p><h3>今日${summary.completed === summary.total ? "已达标" : "完成标准"}</h3></div><strong class="standard-percent">${summary.percent}%</strong></div><div class="standard-progress"><i style="width:${summary.percent}%"></i></div><p class="standard-summary">已完成 <b>${summary.completed}/${summary.total}</b> 项 · ${summary.minutes}/${summary.totalMinutes} 分钟 · 阶段：${phase}</p><div class="standard-task-list">${context.tasks.map((item) => {
-    const guidance = dailyTaskGuidance(context.day, item, phase) || {};
-    return `<div class="standard-task ${taskIsComplete(context.day, item.id) ? "is-complete" : ""}"><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(guidance.quantity || item.detail)}</small><small>达标：${escapeHtml(guidance.criterion || "完成并留下可复查记录")}</small></div><button class="text-button" data-standard-open-task="${escapeHtml(item.id)}">进入 →</button></div>`;
-  }).join("")}</div><p class="standard-note">判定规则：所有今日任务都完成，才算“今日达标”；只完成部分任务会保留进度，但不会计入完整天数。</p>`;
-  $$('[data-standard-open-task]', container).forEach((button) => button.addEventListener("click", () => {
-    openTask(context.tasks.find((item) => item.id === button.dataset.standardOpenTask), context.day);
-  }));
+  const tiers = completionTiersForTasks(context.tasks);
+  const tierRows = [
+    ["basic", "基础达标", "先保住学习连续性", tiers.basic],
+    ["standard", "标准达标", "计入90天完成进度", tiers.standard],
+    ["complete", "完整挑战", "完成当天全部训练", tiers.complete],
+  ];
+  container.innerHTML = `<div class="card-heading"><div><p class="eyebrow">TODAY'S PROGRESS · ${context.day > 0 ? `DAY ${context.day}` : "PREP"}</p><h3>${escapeHtml(DAILY_MODE_LABELS[mode])}</h3></div><strong class="standard-percent">${summary.percent}%</strong></div><div class="standard-progress"><i style="width:${summary.percent}%"></i></div><p class="standard-summary">当前方案已完成 <b>${summary.completed}/${summary.total}</b> 项 · ${summary.minutes}/${recommendedMinutes} 分钟 · 阶段：${phase}</p><div class="completion-tier-grid">${tierRows.map(([id, label, description, tasks]) => {
+    const tierSummary = taskCompletionSummary(context.day, tasks);
+    const complete = tierIsComplete(context.day, tasks);
+    return `<div class="completion-tier ${complete ? "is-complete" : ""} ${id === "standard" ? "is-primary" : ""}"><div><span>${escapeHtml(label)}</span><strong>${complete ? "已达标" : `${tierSummary.completed}/${tierSummary.total}项`}</strong></div><p>${escapeHtml(description)}</p><small>${escapeHtml(tasks.map((item) => item.title).join(" · "))}</small></div>`;
+  }).join("")}</div><p class="standard-note">基础达标适合时间紧张的日子；标准达标会计入90天进度；完整挑战用于有充足时间时完成全部任务。任何已完成项目都会保留。</p>`;
 }
 
 function renderWeaknessReport() {
@@ -799,7 +998,15 @@ function renderPhaseTabs() {
 
 function planDayProgress(planDay) {
   const completed = planDay.tasks.filter((item) => taskIsComplete(planDay.day, item.id)).length;
-  return { completed, total: planDay.tasks.length };
+  const standardTasks = completionTiersForTasks(planDay.tasks).standard;
+  const standardCompleted = standardTasks.filter((item) => taskIsComplete(planDay.day, item.id)).length;
+  return {
+    completed,
+    total: planDay.tasks.length,
+    standardCompleted,
+    standardTotal: standardTasks.length,
+    standardComplete: tierIsComplete(planDay.day, standardTasks),
+  };
 }
 
 function renderPlan(focusDay = null) {
@@ -813,14 +1020,15 @@ function renderPlan(focusDay = null) {
     .map((planDay) => {
       const progress = planDayProgress(planDay);
       const complete = progress.completed === progress.total;
+      const standardComplete = progress.standardComplete;
       const current = planDay.day === currentDay;
       const focused = planDay.day === focusDay;
-      return `<details class="plan-day ${current ? "is-current" : ""} ${complete ? "is-complete" : ""}" id="day-${planDay.day}" ${current || focused ? "open" : ""}>
+      return `<details class="plan-day ${current ? "is-current" : ""} ${standardComplete ? "is-complete" : ""}" id="day-${planDay.day}" ${current || focused ? "open" : ""}>
         <summary>
           <span class="day-number" style="--phase-color:${planDay.phaseColor}">DAY ${planDay.day}</span>
           <span class="day-summary"><small>${planDay.dateLabel} · ${planDay.phaseLabel}</small><strong>${planDay.title}</strong></span>
           <span class="day-time">${planDay.estimatedMinutes}分钟</span>
-          <span class="day-progress">${complete ? "已完成" : `${progress.completed}/${progress.total}`}</span>
+          <span class="day-progress">${complete ? "完整完成" : standardComplete ? "标准达标" : `${progress.standardCompleted}/${progress.standardTotal}标准`}</span>
         </summary>
         <div class="plan-day-body">
           <p>${planDay.objective}</p>
@@ -830,7 +1038,7 @@ function renderPlan(focusDay = null) {
               <button type="button" class="plan-task-open" data-plan-open-day="${planDay.day}" data-plan-open-task="${escapeHtml(item.id)}"><span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(SKILL_LABELS[item.module])} · ${item.minutes}分钟 · ${escapeHtml(item.detail)}</small></span><b>进入 →</b></button>
             </div>`)
             .join("")}</div>
-          <div class="assessment-line"><strong>当日验收</strong><span>${planDay.assessment}</span></div>
+          <div class="assessment-line"><strong>当日验收</strong><span>${planDay.assessment} · 完成标准任务即可计入90天进度，其余任务可继续挑战。</span></div>
         </div>
       </details>`;
     })
@@ -2929,6 +3137,27 @@ function initializeNavigation() {
   window.addEventListener("hashchange", () => navigate(location.hash.slice(1), { instant: true }));
 }
 
+function initializeDailyPlanning() {
+  $("#daily-mode-tabs").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-daily-mode]");
+    if (!button) return;
+    const mode = Number(button.dataset.dailyMode);
+    if (!DAILY_MODE_OPTIONS.includes(mode) || mode === selectedDailyMode()) return;
+    state.profile.dailyMode = mode;
+    persist();
+    renderDashboard();
+  });
+  $("#today-primary-action").addEventListener("click", () => {
+    const context = currentTaskContext();
+    const target = primaryDailyTarget(context);
+    if (target.task) {
+      openTask(target.task, context.day);
+      return;
+    }
+    (context.tasks.length ? $("#today-standard") : $("#weakness-report"))?.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+}
+
 function initializeVocabulary() {
   currentWordIndex = 0;
   $("#vocab-book-select").addEventListener("change", (event) => {
@@ -3065,10 +3294,12 @@ function initializePractice() {
 
 async function initialize() {
   await initializeCloudSession();
+  if (reconcileCompletedDays()) persist();
   $("#release-link").dataset.version = APP_VERSION;
   subscribeCloudStatus(renderCloudIndicator);
   window.addEventListener("online", () => queueCloudSync(state, { immediate: true }));
   initializeNavigation();
+  initializeDailyPlanning();
   initializeVocabulary();
   initializePractice();
   initializeNotes();

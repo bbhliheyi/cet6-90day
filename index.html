@@ -11,7 +11,7 @@
     <title>大学英语六级 · 90天通关训练营</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=0.8.1" />
+    <link rel="stylesheet" href="./styles.css?v=0.9.0" />
   </head>
   <body>
     <div class="app-shell">
@@ -69,12 +69,12 @@
               <div class="hero-copy">
                 <span class="status-pill" id="cycle-status">准备期</span>
                 <p class="eyebrow light">2026年12月六级笔试</p>
-                <h2>把90天拆成每天<br />真正能完成的任务</h2>
+                <h2 id="today-hero-title">今天只做最重要的下一项</h2>
                 <p id="today-guidance">先完成水平诊断与设备检查，正式训练从9月13日开始。</p>
                 <div id="continue-learning" class="continue-learning" hidden></div>
                 <div class="hero-actions">
-                  <button class="primary-button light" data-jump="today">开始今日任务</button>
-                  <button class="text-button light-text" data-route="plan">查看完整计划 →</button>
+                  <button class="primary-button light" id="today-primary-action">继续今天的学习</button>
+                  <button class="text-button light-text" data-route="plan">查看90天地图 →</button>
                 </div>
               </div>
               <div class="countdown-card">
@@ -109,9 +109,23 @@
             </div>
             <span class="date-chip" id="today-date">9月11日 星期五</span>
           </div>
+          <article class="daily-mode-panel panel" id="daily-mode-panel">
+            <div class="daily-mode-copy">
+              <p class="eyebrow">FLEXIBLE PLAN</p>
+              <strong>今天能学多久？</strong>
+              <small>系统只调整今日推荐顺序，不删除完整计划和已有记录。</small>
+            </div>
+            <div class="daily-mode-tabs" id="daily-mode-tabs" aria-label="选择今日学习时长">
+              <button type="button" data-daily-mode="15"><strong>15</strong><span>分钟快速版</span></button>
+              <button type="button" data-daily-mode="30"><strong>30</strong><span>分钟基础版</span></button>
+              <button type="button" data-daily-mode="60"><strong>60</strong><span>分钟标准版</span></button>
+              <button type="button" data-daily-mode="130"><strong>130</strong><span>分钟完整版</span></button>
+            </div>
+            <p class="daily-mode-summary" id="daily-mode-summary"></p>
+          </article>
           <article class="today-standard panel" id="today-standard"></article>
           <article class="catch-up-panel panel" id="catch-up-panel" hidden></article>
-          <div class="task-grid" id="today-tasks"></div>
+          <div class="today-task-sections" id="today-tasks"></div>
           <article class="backup-reminder panel" id="backup-reminder" hidden></article>
 
           <div class="dashboard-lower">
@@ -144,7 +158,7 @@
             <div>
               <p class="eyebrow">SEPTEMBER 13 — DECEMBER 11</p>
               <h2>90天训练路线</h2>
-              <p>每天约130分钟。可以补签，但不要用一天堆完多天任务。</p>
+              <p>每天可选15、30、60或130分钟模式。标准达标计入进度，完整挑战保留全部训练。</p>
             </div>
             <div class="plan-stats">
               <span><strong id="plan-completed">0</strong> 已完成</span>
@@ -584,6 +598,6 @@
 
     <div id="selection-translator" class="selection-translator" hidden role="dialog" aria-label="选区翻译工具"></div>
 
-    <script type="module" src="./src/app.js?v=0.8.1"></script>
+    <script type="module" src="./src/app.js?v=0.9.0"></script>
   </body>
 </html>

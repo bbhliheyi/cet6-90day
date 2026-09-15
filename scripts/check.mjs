@@ -80,8 +80,11 @@ const html = await readFile(new URL("index.html", root), "utf8");
 for (const id of ["view-dashboard", "view-plan", "view-vocabulary", "view-review", "view-sentences", "view-eartraining", "view-practice", "view-tests", "view-lessons", "view-notices", "view-notes", "view-resources"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`缺少页面区域：${id}`);
 }
-for (const id of ["continue-learning", "backup-reminder", "plan-weekly", "ear-day-label", "account-summary", "account-dialog-content", "cloud-sync-indicator", "selection-translator", "saved-vocabulary-list", "vocab-book-select", "vocab-review-due", "vocab-browser-results", "review-center"]) {
+for (const id of ["continue-learning", "today-primary-action", "daily-mode-tabs", "daily-mode-summary", "backup-reminder", "plan-weekly", "ear-day-label", "account-summary", "account-dialog-content", "cloud-sync-indicator", "selection-translator", "saved-vocabulary-list", "vocab-book-select", "vocab-review-due", "vocab-browser-results", "review-center"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`缺少状态组件：${id}`);
+}
+for (const mode of [15, 30, 60, 130]) {
+  if (!html.includes(`data-daily-mode="${mode}"`)) throw new Error(`缺少每日学习时长模式：${mode}分钟`);
 }
 
 const packageData = JSON.parse(await readFile(new URL("package.json", root), "utf8"));
@@ -100,8 +103,11 @@ for (const moduleFile of ["content", "resources", "mock-exams", "ear-training", 
 if (/event\.currentTarget\.disabled\s*=/.test(appSource)) {
   throw new Error("异步按钮处理不得直接修改event.currentTarget，请先缓存元素引用");
 }
-for (const marker of ["function openTask(item, day)", "data-dashboard-open-task", "data-plan-open-task", "data-standard-open-task"]) {
+for (const marker of ["function openTask(item, day)", "data-dashboard-open-task", "data-plan-open-task"]) {
   if (!appSource.includes(marker)) throw new Error(`每日任务缺少跳转能力：${marker}`);
+}
+for (const marker of ["function recommendedTasksForMode(context", "function completionTiersForTasks(tasks)", "基础达标", "标准达标", "完整挑战", "function initializeDailyPlanning()"] ) {
+  if (!appSource.includes(marker)) throw new Error(`弹性今日计划缺少：${marker}`);
 }
 for (const marker of ["function initializeSelectionTranslator()", "function saveCurrentSelectionToVocabulary()", "function saveCurrentSelectionToNotes()", "onlineTranslationForSelection"]) {
   if (!appSource.includes(marker)) throw new Error(`选区翻译功能缺少：${marker}`);
@@ -135,6 +141,7 @@ const storageModule = await import(`../src/storage.js?quality=${APP_VERSION}`);
 if (storageModule.DEFAULT_STATE.vocabularySettings.book !== "cet6" || storageModule.DEFAULT_STATE.vocabularySettings.mode !== "smart") {
   throw new Error("词汇默认学习设置错误");
 }
+if (storageModule.DEFAULT_STATE.profile.dailyMode !== 130) throw new Error("每日学习时长默认值错误");
 localStorage.setItem("cet6-90day-state-v1", JSON.stringify({ ...storageModule.DEFAULT_STATE, studyMinutes: 7 }));
 if (storageModule.loadState("guest").studyMinutes !== 7 || localStorage.getItem("cet6-90day-state-v1")) {
   throw new Error("旧版访客数据迁移失败");
